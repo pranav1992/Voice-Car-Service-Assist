@@ -1,0 +1,10 @@
+[project]
+name = "carservicevoiceassistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.128.8",
+    "livekit-agents[openai]>=1.3.12",
+]
