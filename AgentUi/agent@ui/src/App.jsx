@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ReactFlow,
   Controls,
@@ -30,9 +30,12 @@ const nodeTypes = { agent: AgentNode, tool: ToolNode };
 function FlowCanvas() {
   const reactFlow = useReactFlow();
 
+  // keep track of the first agent so it can't be deleted
+  const initialAgentIdRef = useRef(crypto.randomUUID());
+
   const [nodes, setNodes] = useState([
     {
-      id: crypto.randomUUID(),
+      id: initialAgentIdRef.current,
       position: { x: 0, y: 0 },
       type: "agent",
       data: { ...DEFAULT_AGENT_DATA }
@@ -64,7 +67,8 @@ function FlowCanvas() {
       ...n.data,
       addNode,
       addToolNode,
-      openAgentConfig
+      openAgentConfig,
+      isInitial: n.id === initialAgentIdRef.current
     }
   }));
 
@@ -73,7 +77,15 @@ function FlowCanvas() {
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
 
   const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    (changes) =>
+      setNodes((nds) =>
+        applyNodeChanges(
+          changes.filter(
+            (change) => !(change.type === "remove" && change.id === initialAgentIdRef.current)
+          ),
+          nds
+        )
+      ),
     []
   );
 
@@ -228,6 +240,8 @@ function FlowCanvas() {
   }, []);
 
   const deleteAgent = useCallback((agentId) => {
+    if (agentId === initialAgentIdRef.current) return;
+
     setNodes((nds) => nds.filter((n) => n.id !== agentId));
     setEdges((eds) =>
       eds.filter((e) => e.source !== agentId && e.target !== agentId)
@@ -235,6 +249,60 @@ function FlowCanvas() {
     setSelectedAgentId(null);
     setSidebarOpen(false);
   }, []);
+
+  const saveWorkflow = useCallback(() => {
+    const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
+
+    // helper to strip functions from data
+    const cleanData = (data = {}) =>
+      Object.fromEntries(
+        Object.entries(data).filter(([, value]) => typeof value !== "function")
+      );
+
+    // group tool nodes that are connected to an agent via the "tools" handle
+    const agentToolsMap = {};
+    edges.forEach((e) => {
+      const sourceNode = nodeById[e.source];
+      const targetNode = nodeById[e.target];
+      if (sourceNode?.type === "tool" && targetNode?.type === "agent") {
+        if (!agentToolsMap[targetNode.id]) agentToolsMap[targetNode.id] = [];
+        agentToolsMap[targetNode.id].push({
+          id: sourceNode.id,
+          type: sourceNode.type,
+          data: cleanData(sourceNode.data)
+        });
+      }
+    });
+
+    // build serialized nodes: agents with embedded tools, plus any non-tool nodes
+    const serializedNodes = nodes
+      .filter((n) => n.type !== "tool") // tools are nested under their agent
+      .map(({ data, ...rest }) => ({
+        ...rest,
+        data: {
+          ...cleanData(data),
+          type: rest.type,
+          tools: agentToolsMap[rest.id] || []
+        }
+      }));
+
+    // keep edges that do not involve nested tool nodes and add type + cleaned data
+    const serializedEdges = edges
+      .filter((e) => {
+        const sourceNode = nodeById[e.source];
+        const targetNode = nodeById[e.target];
+        return sourceNode?.type !== "tool" && targetNode?.type !== "tool";
+      })
+      .map((e) => ({
+        ...e,
+        type: e.type || "default",
+        data: cleanData(e.data)
+      }));
+
+    const payload = { nodes: serializedNodes, edges: serializedEdges };
+    console.log("Serialized workflow:", JSON.stringify(payload, null, 2));
+    alert("Workflow serialized to console. Open devtools to view.");
+  }, [nodes, edges]);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -254,61 +322,137 @@ function FlowCanvas() {
         <Controls showInteractive={false} />
       </ReactFlow>
 
-      <button
-        onClick={() => {
-          clearSelection();
-          setSidebarOpen(true);
-        }}
+      <div
         style={{
           position: "absolute",
           right: 20,
           top: 20,
-          padding: "10px 14px",
-          borderRadius: 6,
-          border: "none",
-          background: "#111",
-          color: "white",
-          cursor: "pointer"
+          display: "flex",
+          gap: 8
         }}
       >
-        + Node
-      </button>
+        <button
+          onClick={() => {
+            clearSelection();
+            setSidebarOpen(true);
+          }}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 6,
+            border: "none",
+            background: "#111",
+            color: "white",
+            cursor: "pointer"
+          }}
+        >
+          + Node
+        </button>
+
+        <button
+          onClick={saveWorkflow}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 6,
+            border: "1px solid #111",
+            background: "white",
+            color: "#111",
+            cursor: "pointer"
+          }}
+        >
+          Save
+        </button>
+      </div>
 
       {sidebarOpen && (
         <div style={SIDEBAR_STYLE}>
-          {!selectedTool && !selectedAgent && !selectedEdge && (
-            <NodePalette onAddAgent={addAgentNode} />
-          )}
-
-          {selectedTool && (
-            <ToolConfigPanel tool={selectedTool} onChange={updateToolData} />
-          )}
-
-          {selectedAgent && (
-            <AgentConfigPanel
-              agent={selectedAgent}
-              onChange={updateAgentData}
-              onDelete={deleteAgent}
-            />
-          )}
-
-          {selectedEdge && (
-            <HandoffPanel
-              edge={selectedEdge}
-              onChange={updateEdgeData}
-              onDelete={deleteEdge}
-            />
-          )}
-
-          <button
-            onClick={() => {
-              setSidebarOpen(false);
-              clearSelection();
-            }}
-            style={{ marginTop: 20, padding: 8 }}
+          <div
+            className="no-scrollbar"
+            style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}
           >
-            Close
-          </button>
+            {!selectedTool && !selectedAgent && !selectedEdge && (
+              <NodePalette onAddAgent={addAgentNode} />
+            )}
+
+            {selectedTool && (
+              <ToolConfigPanel tool={selectedTool} onChange={updateToolData} />
+            )}
+
+            {selectedAgent && (
+              <AgentConfigPanel
+                agent={selectedAgent}
+                onChange={updateAgentData}
+                onDelete={deleteAgent}
+                canDelete={selectedAgent.id !== initialAgentIdRef.current}
+              />
+            )}
+
+            {selectedEdge && (
+              <HandoffPanel
+                edge={selectedEdge}
+                onChange={updateEdgeData}
+                onDelete={deleteEdge}
+              />
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 16
+            }}
+          >
+            {selectedTool || selectedAgent || selectedEdge ? (
+              <>
+                <button
+                  onClick={saveWorkflow}
+                  style={{
+                    flex: 1,
+                    padding: 10,
+                    borderRadius: 6,
+                    border: "1px solid #111",
+                    background: "#f6f6f6",
+                    cursor: "pointer"
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    clearSelection();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: 10,
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: "white",
+                    cursor: "pointer"
+                  }}
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setSidebarOpen(false);
+                  clearSelection();
+                }}
+                style={{
+                  flex: 1,
+                  padding: 10,
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: "white",
+                  cursor: "pointer"
+                }}
+              >
+                Close
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

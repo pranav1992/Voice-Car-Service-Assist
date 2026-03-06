@@ -8,9 +8,14 @@ export const DEFAULT_AGENT_DATA = {
 export const DEFAULT_TOOL_DATA = {
   label: "HTTP Request",
   method: "GET",
-  url: "",
-  headers: "",
-  body: ""
+  baseUrl: "",
+  path: "",
+  systemPrompt: "",
+  pathParams: [],
+  queryParams: [],
+  headers: [],
+  body: null,
+  bodyParams: []
 };
 
 export const DEFAULT_HANDOFF_DATA = {

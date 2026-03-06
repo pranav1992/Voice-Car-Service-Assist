@@ -2,7 +2,7 @@ import DangerButton from "../ui/DangerButton";
 import LabeledInput from "../ui/LabeledInput";
 import LabeledTextarea from "../ui/LabeledTextarea";
 
-export default function AgentConfigPanel({ agent, onChange, onDelete }) {
+export default function AgentConfigPanel({ agent, onChange, onDelete, canDelete }) {
   return (
     <>
       <h3>Agent Model</h3>
@@ -41,8 +41,11 @@ export default function AgentConfigPanel({ agent, onChange, onDelete }) {
         placeholder="You are a helpful assistant..."
         rows={5}
       />
-
-      <DangerButton label="Delete Agent" onClick={() => onDelete(agent.id)} />
+      {canDelete ? (
+        <DangerButton label="Delete Agent" onClick={() => onDelete(agent.id)} />
+      ) : (
+        <p style={{ color: "#666", marginTop: 8 }}>Initial agent cannot be deleted.</p>
+      )}
     </>
   );
 }

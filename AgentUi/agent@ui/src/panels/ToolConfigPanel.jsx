@@ -1,7 +1,41 @@
+import { useEffect, useState } from "react";
 import LabeledInput from "../ui/LabeledInput";
 import LabeledTextarea from "../ui/LabeledTextarea";
 
 export default function ToolConfigPanel({ tool, onChange }) {
+  const [pathParamsText, setPathParamsText] = useState("");
+  const [queryParamsText, setQueryParamsText] = useState("");
+  const [headersText, setHeadersText] = useState("");
+  const [bodyParamsText, setBodyParamsText] = useState("");
+
+  useEffect(() => {
+    const stringifyOrEmpty = (arr) =>
+      Array.isArray(arr) && arr.length > 0 ? JSON.stringify(arr, null, 2) : "";
+
+    setPathParamsText(stringifyOrEmpty(tool.data.pathParams));
+    setQueryParamsText(stringifyOrEmpty(tool.data.queryParams));
+    setHeadersText(stringifyOrEmpty(tool.data.headers));
+    setBodyParamsText(stringifyOrEmpty(tool.data.bodyParams));
+  }, [tool]);
+
+  const handleArrayChange = (field, setter) => (value) => {
+    setter(value);
+    try {
+      const parsed = JSON.parse(value || "[]");
+      if (Array.isArray(parsed)) {
+        onChange(tool.id, { [field]: parsed });
+      }
+    } catch {
+      // ignore invalid JSON, keep text so user can fix it
+    }
+  };
+
+  const clearIfPlaceholder = (value, setter) => () => {
+    if (value.trim() === "[]") {
+      setter("");
+    }
+  };
+
   return (
     <>
       <h3>HTTP Tool</h3>
@@ -27,25 +61,84 @@ export default function ToolConfigPanel({ tool, onChange }) {
       </select>
 
       <LabeledInput
-        label="URL"
-        value={tool.data.url}
-        onChange={(v) => onChange(tool.id, { url: v })}
-        placeholder="https://api.example.com/resource"
+        label="Base URL"
+        value={tool.data.baseUrl || ""}
+        onChange={(v) => onChange(tool.id, { baseUrl: v })}
+        placeholder="https://api.example.com"
+      />
+
+      <LabeledInput
+        label="Path"
+        value={tool.data.path || ""}
+        onChange={(v) => onChange(tool.id, { path: v })}
+        placeholder="/weather/{city}"
       />
 
       <LabeledTextarea
-        label="Headers"
-        value={tool.data.headers}
-        onChange={(v) => onChange(tool.id, { headers: v })}
-        placeholder={`Content-Type: application/json\nAuthorization: Bearer ...`}
-        rows={3}
+        label="Path Params (JSON array)"
+        value={pathParamsText}
+        onChange={handleArrayChange("pathParams", setPathParamsText)}
+        onFocus={() => {
+          if (pathParamsText.trim() === "[]") setPathParamsText("");
+        }}
+        placeholder={`[
+  {"name":"city","type":"string","description":"City name","required":true,"value":""}
+]`}
+        rows={6}
       />
+
+      <LabeledTextarea
+        label="Query Params (JSON array)"
+        value={queryParamsText}
+        onChange={handleArrayChange("queryParams", setQueryParamsText)}
+        onFocus={() => {
+          if (queryParamsText.trim() === "[]") setQueryParamsText("");
+        }}
+        placeholder={`[
+  {"name":"units","type":"string","description":"metric|imperial","required":false,"value":""}
+]`}
+        rows={6}
+      />
+
+      <LabeledTextarea
+        label="Headers (JSON array)"
+        value={headersText}
+        onChange={handleArrayChange("headers", setHeadersText)}
+        onFocus={() => {
+          if (headersText.trim() === "[]") setHeadersText("");
+        }}
+        placeholder={`[
+  {"name":"Authorization","description":"API Key","value":""}
+]`}
+        rows={5}
+      />
+
+      {["POST", "PUT", "PATCH"].includes(tool.data.method) && (
+        <LabeledTextarea
+          label="Body Params (JSON array)"
+          value={bodyParamsText}
+          onChange={handleArrayChange("bodyParams", setBodyParamsText)}
+          onFocus={() => {
+            if (bodyParamsText.trim() === "[]") setBodyParamsText("");
+          }}
+          placeholder={`[\n  {\"name\":\"name\",\"type\":\"string\",\"description\":\"Full name\",\"required\":true,\"value\":\"\"}\n]`}
+          rows={6}
+        />
+      )}
 
       <LabeledTextarea
         label="Body"
-        value={tool.data.body}
+        value={tool.data.body ?? ""}
         onChange={(v) => onChange(tool.id, { body: v })}
         placeholder='{"key": "value"}'
+        rows={4}
+      />
+
+      <LabeledTextarea
+        label="System Prompt (when to use this tool)"
+        value={tool.data.systemPrompt || ""}
+        onChange={(v) => onChange(tool.id, { systemPrompt: v })}
+        placeholder="Use this tool when..."
         rows={4}
       />
     </>
