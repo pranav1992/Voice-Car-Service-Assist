@@ -1,29 +1,32 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ReactFlow,
-  Controls,
   useReactFlow,
   applyEdgeChanges,
   applyNodeChanges,
   addEdge,
   reconnectEdge,
-  ReactFlowProvider
+  ReactFlowProvider,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
 
-import AgentNode from "./AgentNode";
-import ToolNode from "./ToolNode";
+import AgentNode from "./components/AgentNode";
+import ToolNode from "./components/ToolNode";
 import {
   DEFAULT_AGENT_DATA,
   DEFAULT_HANDOFF_DATA,
   DEFAULT_TOOL_DATA,
-  SIDEBAR_STYLE
 } from "./constants";
-import NodePalette from "./panels/NodePalette";
-import ToolConfigPanel from "./panels/ToolConfigPanel";
-import AgentConfigPanel from "./panels/AgentConfigPanel";
-import HandoffPanel from "./panels/HandoffPanel";
+import {
+  createWorkflow,
+  updateWorkflow,
+  getWorkflows,
+  deleteWorkflow,
+  getWorkflow,
+} from "./api/workflow";
+import CreateWorkflowDialog from "./components/createWorkflowDialog";
+import CreateWorkFlowPage from "./pages/createWorkFlowPage";
+import WorkflowBuilderPage from "./pages/workflowBuilderPage";
 
 const nodeTypes = { agent: AgentNode, tool: ToolNode };
 
@@ -38,8 +41,8 @@ function FlowCanvas() {
       id: initialAgentIdRef.current,
       position: { x: 0, y: 0 },
       type: "agent",
-      data: { ...DEFAULT_AGENT_DATA }
-    }
+      data: { ...DEFAULT_AGENT_DATA },
+    },
   ]);
   const [edges, setEdges] = useState([]);
 
@@ -47,12 +50,33 @@ function FlowCanvas() {
   const [selectedToolId, setSelectedToolId] = useState(null);
   const [selectedAgentId, setSelectedAgentId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [workflowName, setWorkflowName] = useState("My workflow");
+  const [workflowId, setWorkflowId] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [view, setView] = useState("list"); // "list" | "builder"
+  const [workflowList, setWorkflowList] = useState([]);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [workflowDescription, setWorkflowDescription] = useState("");
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [newNameInput, setNewNameInput] = useState("");
+  const [newDescInput, setNewDescInput] = useState("");
 
   const clearSelection = useCallback(() => {
     setSelectedToolId(null);
     setSelectedAgentId(null);
     setSelectedEdgeId(null);
   }, []);
+
+  const closeSidebar = useCallback(() => {
+    clearSelection();
+    setSidebarOpen(false);
+  }, [clearSelection]);
+
+  const saveAndCloseSidebar = useCallback(() => {
+    setSidebarOpen(false);
+    clearSelection();
+  }, [clearSelection]);
 
   const openAgentConfig = useCallback((agentId) => {
     setSelectedAgentId(agentId);
@@ -68,8 +92,8 @@ function FlowCanvas() {
       addNode,
       addToolNode,
       openAgentConfig,
-      isInitial: n.id === initialAgentIdRef.current
-    }
+      isInitial: n.id === initialAgentIdRef.current,
+    },
   }));
 
   const selectedTool = nodes.find((n) => n.id === selectedToolId);
@@ -81,17 +105,21 @@ function FlowCanvas() {
       setNodes((nds) =>
         applyNodeChanges(
           changes.filter(
-            (change) => !(change.type === "remove" && change.id === initialAgentIdRef.current)
+            (change) =>
+              !(
+                change.type === "remove" &&
+                change.id === initialAgentIdRef.current
+              ),
           ),
-          nds
-        )
+          nds,
+        ),
       ),
-    []
+    [],
   );
 
   const onEdgesChange = useCallback(
     (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
+    [],
   );
 
   const isValidConnection = useCallback(
@@ -100,7 +128,7 @@ function FlowCanvas() {
       const targetNode = nodes.find((n) => n.id === connection.target);
       return sourceNode?.type === "agent" && targetNode?.type === "agent";
     },
-    [nodes]
+    [nodes],
   );
 
   const onConnect = useCallback(
@@ -110,20 +138,22 @@ function FlowCanvas() {
         addEdge(
           {
             ...params,
-            data: { ...DEFAULT_HANDOFF_DATA }
+            data: { ...DEFAULT_HANDOFF_DATA },
           },
-          eds
-        )
+          eds,
+        ),
       );
     },
-    [isValidConnection]
+    [isValidConnection],
   );
 
   const onReconnect = useCallback((oldEdge, newConnection) => {
     setEdges((eds) => {
       const updated = reconnectEdge(oldEdge, newConnection, eds);
       return updated.map((e) =>
-        e.id === oldEdge.id ? { ...e, data: oldEdge.data ?? DEFAULT_HANDOFF_DATA } : e
+        e.id === oldEdge.id
+          ? { ...e, data: oldEdge.data ?? DEFAULT_HANDOFF_DATA }
+          : e,
       );
     });
   }, []);
@@ -139,7 +169,7 @@ function FlowCanvas() {
         setSidebarOpen(true);
       }
     },
-    [nodes]
+    [nodes],
   );
 
   const onNodeClick = useCallback((_, node) => {
@@ -150,16 +180,16 @@ function FlowCanvas() {
       setSidebarOpen(true);
     }
   }, []);
-  
+
   function addAgentNode() {
     const newNode = {
       id: crypto.randomUUID(),
       type: "agent",
       position: {
         x: 200 + Math.random() * 200,
-        y: 200 + Math.random() * 200
+        y: 200 + Math.random() * 200,
       },
-      data: { ...DEFAULT_AGENT_DATA }
+      data: { ...DEFAULT_AGENT_DATA },
     };
     setNodes((nds) => [...nds, newNode]);
     setSidebarOpen(false);
@@ -174,13 +204,13 @@ function FlowCanvas() {
       id: toolId,
       type: "tool",
       position: { x: agent.position.x, y: agent.position.y + 150 },
-      data: { ...DEFAULT_TOOL_DATA }
+      data: { ...DEFAULT_TOOL_DATA },
     };
     const edge = {
       id: `${toolId}-${agentId}`,
       source: toolId,
       target: agentId,
-      targetHandle: "tools"
+      targetHandle: "tools",
     };
 
     setNodes((nds) => [...nds, toolNode]);
@@ -193,7 +223,7 @@ function FlowCanvas() {
       id: newId,
       type: "agent",
       position: { x: 400, y: 200 },
-      data: { ...DEFAULT_AGENT_DATA }
+      data: { ...DEFAULT_AGENT_DATA },
     };
 
     const newEdge = {
@@ -202,7 +232,7 @@ function FlowCanvas() {
       target: newId,
       sourceHandle: "next",
       targetHandle: "prev",
-      data: { ...DEFAULT_HANDOFF_DATA }
+      data: { ...DEFAULT_HANDOFF_DATA },
     };
 
     setNodes((nds) => [...nds, newAgent]);
@@ -212,24 +242,24 @@ function FlowCanvas() {
   const updateToolData = useCallback((toolId, updates) => {
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === toolId ? { ...n, data: { ...n.data, ...updates } } : n
-      )
+        n.id === toolId ? { ...n, data: { ...n.data, ...updates } } : n,
+      ),
     );
   }, []);
 
   const updateAgentData = useCallback((agentId, updates) => {
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === agentId ? { ...n, data: { ...n.data, ...updates } } : n
-      )
+        n.id === agentId ? { ...n, data: { ...n.data, ...updates } } : n,
+      ),
     );
   }, []);
 
   const updateEdgeData = useCallback((edgeId, updates) => {
     setEdges((eds) =>
       eds.map((e) =>
-        e.id === edgeId ? { ...e, data: { ...e.data, ...updates } } : e
-      )
+        e.id === edgeId ? { ...e, data: { ...e.data, ...updates } } : e,
+      ),
     );
   }, []);
 
@@ -244,19 +274,19 @@ function FlowCanvas() {
 
     setNodes((nds) => nds.filter((n) => n.id !== agentId));
     setEdges((eds) =>
-      eds.filter((e) => e.source !== agentId && e.target !== agentId)
+      eds.filter((e) => e.source !== agentId && e.target !== agentId),
     );
     setSelectedAgentId(null);
     setSidebarOpen(false);
   }, []);
 
-  const saveWorkflow = useCallback(() => {
+  const serializeWorkflow = useCallback(() => {
     const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
     // helper to strip functions from data
     const cleanData = (data = {}) =>
       Object.fromEntries(
-        Object.entries(data).filter(([, value]) => typeof value !== "function")
+        Object.entries(data).filter(([, value]) => typeof value !== "function"),
       );
 
     // group tool nodes that are connected to an agent via the "tools" handle
@@ -269,7 +299,7 @@ function FlowCanvas() {
         agentToolsMap[targetNode.id].push({
           id: sourceNode.id,
           type: sourceNode.type,
-          data: cleanData(sourceNode.data)
+          data: cleanData(sourceNode.data),
         });
       }
     });
@@ -282,8 +312,8 @@ function FlowCanvas() {
         data: {
           ...cleanData(data),
           type: rest.type,
-          tools: agentToolsMap[rest.id] || []
-        }
+          tools: agentToolsMap[rest.id] || [],
+        },
       }));
 
     // keep edges that do not involve nested tool nodes and add type + cleaned data
@@ -296,166 +326,301 @@ function FlowCanvas() {
       .map((e) => ({
         ...e,
         type: e.type || "default",
-        data: cleanData(e.data)
+        data: cleanData(e.data),
       }));
 
-    const payload = { nodes: serializedNodes, edges: serializedEdges };
-    console.log("Serialized workflow:", JSON.stringify(payload, null, 2));
-    alert("Workflow serialized to console. Open devtools to view.");
-  }, [nodes, edges]);
+    const meta = {};
+    if (workflowDescription.trim())
+      meta.description = workflowDescription.trim();
+
+    return {
+      ...(Object.keys(meta).length ? { meta } : {}),
+      nodes: serializedNodes,
+      edges: serializedEdges,
+    };
+  }, [nodes, edges, workflowDescription]);
+
+  const loadWorkflowIntoCanvas = useCallback((payload) => {
+    if (!payload?.nodes) return;
+    // reconstruct agents and tools
+    const agentNodes = [];
+    const toolNodes = [];
+    const edgesFromTools = [];
+
+    payload.nodes.forEach((n) => {
+      const { tools = [], ...restData } = n.data || {};
+      agentNodes.push({
+        ...n,
+        data: {
+          ...restData,
+          type: "agent",
+        },
+      });
+      tools.forEach((t) => {
+        const toolId = t.id || crypto.randomUUID();
+        toolNodes.push({
+          id: toolId,
+          type: "tool",
+          position: { x: n.position?.x || 0, y: (n.position?.y || 0) + 150 },
+          data: t.data || {},
+        });
+        edgesFromTools.push({
+          id: `${toolId}-${n.id}`,
+          source: toolId,
+          target: n.id,
+          targetHandle: "tools",
+        });
+      });
+    });
+
+    const filteredEdges =
+      payload.edges?.filter(
+        (e) =>
+          agentNodes.find((a) => a.id === e.source) &&
+          agentNodes.find((a) => a.id === e.target),
+      ) || [];
+
+    setNodes([...agentNodes, ...toolNodes]);
+    setEdges([...filteredEdges, ...edgesFromTools]);
+  }, []);
+
+  const saveNewWorkflow = useCallback(async () => {
+    const name = workflowName.trim();
+    if (!name) {
+      setStatusMessage("Please enter a workflow name before saving.");
+      return;
+    }
+    const taken = workflowList.some(
+      (wf) => wf.name?.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) {
+      setStatusMessage(
+        "Workflow name already exists. Choose a different name.",
+      );
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload = serializeWorkflow();
+      const res = await createWorkflow({ name, payload });
+      setWorkflowId(res.id);
+      setStatusMessage(`Saved new workflow "${name}" (id: ${res.id}).`);
+      setView("list");
+      fetchWorkflowList();
+    } catch (err) {
+      console.error(err);
+      setStatusMessage(
+        err.response?.data?.detail || err.message || "Failed to save.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [serializeWorkflow, workflowName]);
+
+  const updateExistingWorkflow = useCallback(async () => {
+    const name = workflowName.trim();
+    if (!name) {
+      setStatusMessage("Please enter a workflow name before updating.");
+      return;
+    }
+    if (!workflowId) {
+      setStatusMessage("Provide a workflow ID to update.");
+      return;
+    }
+    const taken = workflowList.some(
+      (wf) =>
+        String(wf.id) !== String(workflowId) &&
+        wf.name?.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) {
+      setStatusMessage("Another workflow already uses this name.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload = serializeWorkflow();
+      const res = await updateWorkflow(workflowId, { name, payload });
+      setStatusMessage(`Updated workflow "${res.name}" (id: ${res.id}).`);
+      setView("list");
+      fetchWorkflowList();
+    } catch (err) {
+      console.error(err);
+      setStatusMessage(
+        err.response?.data?.detail || err.message || "Failed to update.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [serializeWorkflow, workflowId, workflowName]);
+
+  const fetchWorkflowList = useCallback(async () => {
+    setIsLoadingList(true);
+    try {
+      const data = await getWorkflows();
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+      setWorkflowList(list);
+    } catch (err) {
+      console.error(err);
+      setStatusMessage(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to load workflows.",
+      );
+    } finally {
+      setIsLoadingList(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWorkflowList();
+  }, [fetchWorkflowList]);
+
+  const handleOpenWorkflow = useCallback(
+    async (id) => {
+      try {
+        const wf = await getWorkflow(id);
+        setWorkflowId(String(wf.id));
+        setWorkflowName(wf.name || "Untitled");
+        setWorkflowDescription(wf.payload?.meta?.description || "");
+        loadWorkflowIntoCanvas(wf.payload);
+        setView("builder");
+        setStatusMessage(`Opened workflow "${wf.name}"`);
+      } catch (err) {
+        console.error(err);
+        setStatusMessage(
+          err.response?.data?.detail ||
+            err.message ||
+            "Failed to open workflow.",
+        );
+      }
+    },
+    [loadWorkflowIntoCanvas],
+  );
+
+  const handleDeleteWorkflow = useCallback(
+    async (id) => {
+      if (!confirm("Delete this workflow permanently?")) return;
+      try {
+        await deleteWorkflow(id);
+        setStatusMessage("Workflow deleted.");
+        fetchWorkflowList();
+      } catch (err) {
+        console.error(err);
+        setStatusMessage(
+          err.response?.data?.detail || err.message || "Failed to delete.",
+        );
+      }
+    },
+    [fetchWorkflowList],
+  );
+
+  const startNewWorkflow = useCallback(() => {
+    setNewNameInput("");
+    setNewDescInput("");
+    setShowNewDialog(true);
+  }, []);
+
+  const confirmNewWorkflow = useCallback(() => {
+    const name = (newNameInput || "").trim();
+    if (!name) {
+      setStatusMessage("Workflow name is required.");
+      return;
+    }
+    const taken = workflowList.some(
+      (wf) => wf.name?.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) {
+      setStatusMessage("Workflow name already exists. Pick a different name.");
+      return;
+    }
+    setStatusMessage("");
+    setWorkflowName(name);
+    setWorkflowDescription(newDescInput.trim());
+    setNodes([
+      {
+        id: initialAgentIdRef.current,
+        position: { x: 0, y: 0 },
+        type: "agent",
+        data: { ...DEFAULT_AGENT_DATA },
+      },
+    ]);
+    setEdges([]);
+    setWorkflowId("");
+    setSidebarOpen(false);
+    setView("builder");
+    setStatusMessage(`Started new workflow "${name}".`);
+    setShowNewDialog(false);
+  }, [newDescInput, newNameInput, workflowName]);
+
+  const renderBuilder = () => (
+    <WorkflowBuilderPage 
+      workflowName={workflowName}
+      setWorkflowName={setWorkflowName}
+      workflowDescription={workflowDescription}
+      setWorkflowDescription={setWorkflowDescription}
+      reactFlow={reactFlow}
+      setView={setView}
+      workflowId={workflowId}
+      updateExistingWorkflow={updateExistingWorkflow}
+      saveNewWorkflow={saveNewWorkflow}
+      isSaving={isSaving}
+      addAgentNode={addAgentNode}
+      nodesWithHandlers={nodesWithHandlers}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onReconnect={onReconnect}
+      onEdgeClick={onEdgeClick}
+      onNodeClick={onNodeClick}
+      sidebarOpen={sidebarOpen}
+      selectedTool={selectedTool}
+      selectedAgent={selectedAgent}
+      selectedEdge={selectedEdge}
+      updateToolData={updateToolData}
+      updateAgentData={updateAgentData}
+      updateEdgeData={updateEdgeData}
+      deleteAgent={deleteAgent}
+      deleteEdge={deleteEdge}
+      initialAgentIdRef={initialAgentIdRef}
+      statusMessage={statusMessage}
+      onCloseSidebar={closeSidebar}
+      onSavePanel={saveAndCloseSidebar}
+    />
+  );
+
+  const renderList = () => (
+    <CreateWorkFlowPage
+      startNewWorkflow={startNewWorkflow}
+      isLoadingList={isLoadingList}
+      workflowList={workflowList}
+      handleOpenWorkflow={handleOpenWorkflow}
+      handleDeleteWorkflow={handleDeleteWorkflow}
+    />
+  );
+
+  const renderNewDialog = () =>
+    showNewDialog ? (
+      <CreateWorkflowDialog
+        newNameInput={newNameInput}
+        setNewNameInput={setNewNameInput}
+        newDescInput={newDescInput}
+        setNewDescInput={setNewDescInput}
+        setShowNewDialog={setShowNewDialog}
+        confirmNewWorkflow={confirmNewWorkflow}
+      />
+    ) : null;
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      <ReactFlow
-        nodes={nodesWithHandlers}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onReconnect={onReconnect}
-        onEdgeClick={onEdgeClick}
-        onNodeClick={onNodeClick}
-        isValidConnection={isValidConnection}
-        fitView
-      >
-        <Controls showInteractive={false} />
-      </ReactFlow>
-
-      <div
-        style={{
-          position: "absolute",
-          right: 20,
-          top: 20,
-          display: "flex",
-          gap: 8
-        }}
-      >
-        <button
-          onClick={() => {
-            clearSelection();
-            setSidebarOpen(true);
-          }}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 6,
-            border: "none",
-            background: "#111",
-            color: "white",
-            cursor: "pointer"
-          }}
-        >
-          + Node
-        </button>
-
-        <button
-          onClick={saveWorkflow}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 6,
-            border: "1px solid #111",
-            background: "white",
-            color: "#111",
-            cursor: "pointer"
-          }}
-        >
-          Save
-        </button>
-      </div>
-
-      {sidebarOpen && (
-        <div style={SIDEBAR_STYLE}>
-          <div
-            className="no-scrollbar"
-            style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}
-          >
-            {!selectedTool && !selectedAgent && !selectedEdge && (
-              <NodePalette onAddAgent={addAgentNode} />
-            )}
-
-            {selectedTool && (
-              <ToolConfigPanel tool={selectedTool} onChange={updateToolData} />
-            )}
-
-            {selectedAgent && (
-              <AgentConfigPanel
-                agent={selectedAgent}
-                onChange={updateAgentData}
-                onDelete={deleteAgent}
-                canDelete={selectedAgent.id !== initialAgentIdRef.current}
-              />
-            )}
-
-            {selectedEdge && (
-              <HandoffPanel
-                edge={selectedEdge}
-                onChange={updateEdgeData}
-                onDelete={deleteEdge}
-              />
-            )}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              marginTop: 16
-            }}
-          >
-            {selectedTool || selectedAgent || selectedEdge ? (
-              <>
-                <button
-                  onClick={saveWorkflow}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    borderRadius: 6,
-                    border: "1px solid #111",
-                    background: "#f6f6f6",
-                    cursor: "pointer"
-                  }}
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setSidebarOpen(false);
-                    clearSelection();
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    borderRadius: 6,
-                    border: "1px solid #ddd",
-                    background: "white",
-                    cursor: "pointer"
-                  }}
-                >
-                  Close
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => {
-                  setSidebarOpen(false);
-                  clearSelection();
-                }}
-                style={{
-                  flex: 1,
-                  padding: 10,
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                  background: "white",
-                  cursor: "pointer"
-                }}
-              >
-                Close
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <>
+      {view === "builder" ? renderBuilder() : renderList()}
+      {renderNewDialog()}
+    </>
   );
 }
 

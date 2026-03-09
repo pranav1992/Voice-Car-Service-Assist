@@ -2,7 +2,7 @@ import DangerButton from "../ui/DangerButton";
 import LabeledInput from "../ui/LabeledInput";
 import LabeledTextarea from "../ui/LabeledTextarea";
 
-export default function HandoffPanel({ edge, onChange, onDelete }) {
+export default function HandoffPanel({ edge, onChange, onDelete, onSave = () => {}, onClose = () => {} }) {
   return (
     <>
       <h3>Handoff</h3>
@@ -50,6 +50,41 @@ export default function HandoffPanel({ edge, onChange, onDelete }) {
         label="Delete Handoff Edge"
         onClick={() => onDelete(edge.id)}
       />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 16,
+        }}
+      >
+        <button
+          onClick={onSave}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #111",
+            background: "#111",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          Save
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            background: "white",
+            cursor: "pointer",
+          }}
+        >
+          Close
+        </button>
+      </div>
     </>
   );
 }

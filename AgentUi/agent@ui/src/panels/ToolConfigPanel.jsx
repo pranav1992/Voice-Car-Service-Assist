@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import LabeledInput from "../ui/LabeledInput";
 import LabeledTextarea from "../ui/LabeledTextarea";
 
-export default function ToolConfigPanel({ tool, onChange }) {
+export default function ToolConfigPanel({ tool, onChange, onSave = () => {}, onClose = () => {} }) {
   const [pathParamsText, setPathParamsText] = useState("");
   const [queryParamsText, setQueryParamsText] = useState("");
   const [headersText, setHeadersText] = useState("");
@@ -141,6 +141,41 @@ export default function ToolConfigPanel({ tool, onChange }) {
         placeholder="Use this tool when..."
         rows={4}
       />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 16,
+        }}
+      >
+        <button
+          onClick={onSave}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #111",
+            background: "#111",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          Save
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            background: "white",
+            cursor: "pointer",
+          }}
+        >
+          Close
+        </button>
+      </div>
     </>
   );
 }

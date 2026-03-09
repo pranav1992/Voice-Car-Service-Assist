@@ -1,14 +1,15 @@
 from datetime import datetime
 from sqlmodel import SQLModel, Field
 from typing import Optional, Dict, Any
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Autosave(SQLModel, table=True):  # draft / working state
-    id: int
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     payload: Dict[str, Any] = Field(
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column(JSONB, nullable=False),
         description="Workflow graph payload from UI"
         "(nodes, edges, metadata).",
     )
@@ -23,7 +24,7 @@ class Autosave(SQLModel, table=True):  # draft / working state
 
 
 class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
-    id: int
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     version: Optional[int] = Field(
         default=None,
@@ -37,7 +38,7 @@ class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
                     "for a committed snapshot.",
     )
     payload: Dict[str, Any] = Field(
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column(JSONB, nullable=False),
         description="Workflow graph payload from UI"
         "(nodes, edges, metadata).",
     )
