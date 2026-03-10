@@ -18,6 +18,9 @@ version = "0.1.0"
 source = { virtual = "AgentServer" }
 dependencies = [
     { name = "fastapi" },
+    { name = "livekit-agents", extra = ["openai", "silero", "turn-detector"] },
+    { name = "livekit-api" },
+    { name = "livekit-plugins-noise-cancellation" },
     { name = "python-dotenv" },
     { name = "sqlmodel" },
     { name = "uvicorn" },
@@ -26,6 +29,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.132.0" },
+    { name = "livekit-agents", extras = ["openai", "silero", "turn-detector"], specifier = "~=1.4" },
+    { name = "livekit-api", specifier = ">=1.1.0" },
+    { name = "livekit-plugins-noise-cancellation", specifier = "~=0.2" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "sqlmodel", specifier = ">=0.0.37" },
     { name = "uvicorn", specifier = ">=0.41.0" },
