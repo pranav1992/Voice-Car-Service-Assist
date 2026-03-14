@@ -12,4 +12,8 @@ dependencies = [
     "livekit-api>=1.1.0",
     "livekit-plugins-noise-cancellation~=0.2",
     "uvicorn>=0.41.0",
+    "psycopg[binary]>=3.3.3",
+    "alembic>=1.18.4",
+    "pydantic-settings>=2.13.1",
+    "psycopg2-binary>=2.9.11",
 ]

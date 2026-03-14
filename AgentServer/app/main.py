@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import workflows
+from AgentServer.app.api.routers import workflows
 from app.infrastructure.db.engine import create_db_and_tables
+from AgentServer.app.exception_handler import register_exception_handlers
 
 
 @asynccontextmanager
@@ -19,7 +21,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(workflows.router)
+
+register_exception_handlers(app)
 
 
 @app.get("/health")

@@ -1,14 +1,17 @@
 import React from 'react'
+import { useState } from 'react';
 
 function CreateWorkflowDialog({
+  setShowNewDialog,
   newNameInput,
   setNewNameInput,
   newDescInput,
   setNewDescInput,
-  setShowNewDialog,
   confirmNewWorkflow
 }) {
+    
   return (
+
     <div
         style={{
           position: "fixed",

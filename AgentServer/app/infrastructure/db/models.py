@@ -2,7 +2,8 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field
 from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from pydantic import model_validator
 
 
@@ -14,7 +15,8 @@ class WorkflowAutosave(SQLModel, table=True):  # draft / working state
     name: str = Field(max_length=200, unique=True, index=True)
     description: Optional[str] = Field(default=None, max_length=1000)
     payload: Dict[str, Any] = Field(
-        sa_column=Column(JSON, nullable=False),
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
         description="Workflow graph payload from UI"
         "(nodes, edges, metadata).",
     )
@@ -38,7 +40,8 @@ class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
     )
     description: Optional[str] = Field(default=None, max_length=1000)
     payload: Dict[str, Any] = Field(
-        sa_column=Column(JSON, nullable=False),
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
         description="Workflow graph payload from UI"
         "(nodes, edges, metadata).",
     )
@@ -55,3 +58,58 @@ class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
             if name and not data.get("name_lower"):
                 data = {**data, "name_lower": name.lower()}
         return data
+
+
+class Agent(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    workflow_id: UUID = Field(foreign_key="workflow.id")
+    isInittial: Optional[bool] = Field(default=False)
+    model: str = Field(default="gpt-4")
+    temperature: float = Field(default=0.5)
+    instructions: str = Field(default="You are an AI assistant.")
+    gaurdrails: str = Field(default="")
+
+
+class Tool(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    method: str = Field(max_length=10)
+    payload: Dict[str, Any]
+
+
+class HandOff(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+        description="Workflow graph payload from UI"
+        "(nodes, edges, metadata).",
+    )
+
+
+class Staging(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+        description="Workflow graph payload from UI"
+        "(nodes, edges, metadata).",
+    )
+
+
+class Graph(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+        description="Workflow graph payload from UI"
+        "(nodes, edges, metadata).",
+    )

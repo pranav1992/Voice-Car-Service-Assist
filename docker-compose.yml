@@ -1,0 +1,31 @@
+
+services:
+  # api:
+  #   build: AgentServer/.
+  #   env_file:
+  #     - AgentServer/.env.docker
+  #   depends_on:
+  #     - postgres
+  #   ports:
+  #     - "8000:8000"
+
+  # client:
+  #   build: AgentUi/agent@ui/.
+  #   ports:
+  #     - "5173:5173"
+
+  postgres:
+    image: postgres:15
+    container_name: postgres-dev
+    restart: always
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: devdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

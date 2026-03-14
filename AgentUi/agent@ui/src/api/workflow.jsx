@@ -6,7 +6,7 @@ export const getWorkflow = async (workflowId) => {
 };
 
 export const createWorkflow = async (payload) => {
-    const { data } = await apiClient.post("/workflows", payload);
+    const { data } = await apiClient.post("/workflows/create_workflow", payload);
     return data;
 };
 
@@ -21,6 +21,8 @@ export const deleteWorkflow = async (workflowId) => {
 };
 
 export const getWorkflows = async () => {
-    const { data } = await apiClient.get("/workflows");
+    console.log("getWorkflows");
+    const { data } = await apiClient.get("/workflows/all_workflows");
+    console.log(data);
     return data;
 };
