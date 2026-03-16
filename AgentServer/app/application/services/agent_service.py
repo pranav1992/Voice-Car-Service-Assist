@@ -3,7 +3,8 @@ from app.infrastructure.db.models import Agent
 from app.domain.schema import AgentCreate
 from app.domain.exceptions import (
                                 InvalidAgentDataError,
-                                AgentAlreadyInitializedError)
+                                AgentAlreadyInitializedError,
+                                AgentNameAlreadyExist)
 
 
 class AgentService:
@@ -13,6 +14,9 @@ class AgentService:
     def create(self, agent: AgentCreate):
         try:
             agent = Agent(**agent.model_dump())
+            exist = self.agent_repository.isNameAlreadyExist(agent.name)
+            if exist:
+                raise AgentNameAlreadyExist(agent.name)
         except Exception:
             raise InvalidAgentDataError()
         return self.agent_repository.create(agent)
@@ -30,6 +34,12 @@ class AgentService:
     def initialize(self, agent):
         try:
             agent = Agent(**agent.model_dump())
+            if not agent.isInitial:
+                raise InvalidAgentDataError()
+            already_exist = self.agent_repository.isInitialized(
+                agent.workflow_id)
+            if already_exist:
+                raise AgentAlreadyInitializedError()
         except Exception:
             raise InvalidAgentDataError()
         return self.agent_repository.initialize(agent)

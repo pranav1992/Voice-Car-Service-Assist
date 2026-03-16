@@ -39,7 +39,7 @@ function CreateWorkflowDialog({
             onChange={(e) => setNewNameInput(e.target.value)}
             placeholder="Enter workflow name"
             style={{
-              width: "100%",
+              width: "95%",
               padding: 10,
               borderRadius: 6,
               border: "1px solid #ddd",
@@ -53,7 +53,7 @@ function CreateWorkflowDialog({
             placeholder="What does this workflow do?"
             rows={3}
             style={{
-              width: "100%",
+              width: "95%",
               padding: 10,
               borderRadius: 6,
               border: "1px solid #ddd",

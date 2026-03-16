@@ -7,15 +7,12 @@ from pydantic import BaseModel, ConfigDict
 
 class WorkflowCreate(BaseModel):
     name: str
-    description: Optional[str] = None
-    payload: Dict[str, Any]
 
 
 class WorkflowResponse(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str] = None
     created_at: datetime
     name_lower: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)

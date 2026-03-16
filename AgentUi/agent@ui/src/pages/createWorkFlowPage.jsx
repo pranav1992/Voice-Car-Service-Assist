@@ -223,6 +223,7 @@ function CreateWorkFlowPage() {
       setStatusMessage("Workflow name already exists. Pick a different name.");
       return;
     }
+    console.log(name)
     setStatusMessage("");
     setWorkflowName(name);
     setWorkflowDescription(newDescInput.trim());

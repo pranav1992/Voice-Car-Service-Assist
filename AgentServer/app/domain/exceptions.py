@@ -18,3 +18,8 @@ class InvalidAgentDataError(DomainExceptions):
 class AgentAlreadyInitializedError(DomainExceptions):
     """Raised when the agent is already initialized"""
     pass
+
+class AgentNameAlreadyExist(DomainExceptions):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(name)

@@ -1,7 +1,7 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from app.domain.exceptions import (
-    InvalidAgentDataError, AgentAlreadyInitializedError)
+    InvalidAgentDataError, AgentAlreadyInitializedError,AgentNameAlreadyExist)
 
 
 def agent_exception_handler(app):
@@ -19,5 +19,12 @@ def agent_exception_handler(app):
                                             AgentAlreadyInitializedError):
         return JSONResponse(
             status_code=400,
-            content={"detail": "Invalid agent data."},
+            content={"detail": "initial agent for this workflow already exist! if you need any change please modify it."},
+        )
+    
+    @app.exception_handler(AgentNameAlreadyExist)
+    async def agent_name_already_exist(request: Request, exc: AgentNameAlreadyExist):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": f"Agent name {exc.name} already exist!"}
         )

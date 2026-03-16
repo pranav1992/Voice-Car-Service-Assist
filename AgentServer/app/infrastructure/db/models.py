@@ -38,13 +38,6 @@ class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
     name_lower: Optional[str] = Field(
         default=None, max_length=200, unique=True, index=True
     )
-    description: Optional[str] = Field(default=None, max_length=1000)
-    payload: Dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
-        description="Workflow graph payload from UI"
-        "(nodes, edges, metadata).",
-    )
     created_at: datetime = Field(
         default_factory=datetime.now,
         description="Timestamp the snapshot was stored.",
