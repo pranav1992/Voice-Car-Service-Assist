@@ -6,7 +6,7 @@ export const getWorkflow = async (workflowId) => {
 };
 
 export const createWorkflow = async (payload) => {
-    const { data } = await apiClient.post("/workflows/create_workflow", payload);
+    const data  = await apiClient.post("/workflows/create_workflow", payload);
     return data;
 };
 

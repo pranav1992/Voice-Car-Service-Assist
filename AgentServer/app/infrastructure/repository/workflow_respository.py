@@ -22,8 +22,7 @@ class WorkflowRepository:
                 workflow.name_lower = workflow.name.lower()
 
             self.session.add(workflow)
-            self.session.commit()
-            self.session.refresh(workflow)
+            self.session.flush()
             return workflow
         except IntegrityError:
             self.session.rollback()

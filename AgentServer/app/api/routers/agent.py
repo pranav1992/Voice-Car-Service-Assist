@@ -1,11 +1,9 @@
 from fastapi import APIRouter
 from app.application.services.agent_service import AgentService
-from app.domain.schema import AgentCreate, InititialAgent
-from app.infrastructure.repository.agent_repository import AgentRepository
-from app.infrastructure.db.session import get_session
+from app.domain.schema import AgentCreate
 from fastapi import Depends
-from sqlmodel import Session
 from app.domain.schema import Agentresponse
+from app.api.dependencies.services import get_agent_service
 
 
 router = APIRouter(
@@ -14,26 +12,25 @@ router = APIRouter(
 )
 
 
-@router.post("/create_agent", response_model=Agentresponse)
-def create_agent(agent: AgentCreate, session: Session = Depends(get_session)):
-    agent_service = AgentService(AgentRepository(session))
+@router.post("/", response_model=Agentresponse)
+def create_agent(agent: AgentCreate, agent_service: AgentService = Depends(
+                                                        get_agent_service)):
     return agent_service.create(agent)
 
 
-@router.post("/initialize_agent", response_model=Agentresponse)
-def initialize_agent(agent: InititialAgent, session:
-                     Session = Depends(get_session)):
-    agent_service = AgentService(AgentRepository(session))
-    return agent_service.initialize(agent)
-
-
-@router.put("/update_agent", response_model=Agentresponse)
-def update_agent(agent, session: Session = Depends(get_session)):
-    agent_service = AgentService(AgentRepository(session))
+@router.put("/", response_model=Agentresponse)
+def update_agent(agent: AgentCreate, agent_service: AgentService = Depends(
+                                                    get_agent_service)):
     return agent_service.update(agent)
 
 
-@router.delete("/delete_agent", response_model=Agentresponse)
-def delete_agent(agent, session: Session = Depends(get_session)):
-    agent_service = AgentService(AgentRepository(session))
-    return agent_service.delete(agent)
+@router.delete("/{id}", response_model=Agentresponse)
+def delete_agent(id, agent_service: AgentService = Depends(
+                                                    get_agent_service)):
+    return agent_service.delete(id)
+
+
+@router.get("/{id}")
+def getAgent(id, agent_service: AgentService = Depends(
+                                                    get_agent_service)):
+    return agent_service.get_agent(id)

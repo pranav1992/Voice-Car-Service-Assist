@@ -1,7 +1,13 @@
 import { createWorkflow } from "../api/workflow";
+import 
 
 async function createWorkflowService(payload) {
     const data = await createWorkflow(payload)
-    console.log(data)
+    if (data["status"] == 200){
+        
+    }
+    
 
 }
+
+export default createWorkflowService

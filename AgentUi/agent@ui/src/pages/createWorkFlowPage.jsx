@@ -8,6 +8,7 @@ import {
   getWorkflow,
 } from "../api/workflow";
 import { useState, useCallback, useEffect } from "react";
+import createWorkflowService from "../service/workflow_service";
 // Presentational list view for workflows. Expects handlers and data from parent.
 function CreateWorkFlowPage() {
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -210,7 +211,7 @@ function CreateWorkFlowPage() {
 
   // const confirmNewWorkflow = ()=>{showNewDialog(false)}
 
-  const confirmNewWorkflow = useCallback(() => {
+  const confirmNewWorkflow = useCallback(async () => {
     const name = (newNameInput || "").trim();
     if (!name) {
       setStatusMessage("Workflow name is required.");
@@ -226,19 +227,23 @@ function CreateWorkFlowPage() {
     console.log(name)
     setStatusMessage("");
     setWorkflowName(name);
-    setWorkflowDescription(newDescInput.trim());
-    setNodes([
-      {
-        id: initialAgentIdRef.current,
-        position: { x: 0, y: 0 },
-        type: "agent",
-        data: { ...DEFAULT_AGENT_DATA },
-      },
-    ]);
-    setEdges([]);
+    let payload = {"name": name}
+    await createWorkflowService(payload)
+
+
+    // setWorkflowDescription(newDescInput.trim());
+    // setNodes([
+    //   {
+    //     id: initialAgentIdRef.current,
+    //     position: { x: 0, y: 0 },
+    //     type: "agent",
+    //     data: { ...DEFAULT_AGENT_DATA },
+    //   },
+    // ]);
+    // setEdges([]);
     setWorkflowId("");
-    setSidebarOpen(false);
-    setView("builder");
+    // setSidebarOpen(false);
+    // setView("builder");
     setStatusMessage(`Started new workflow "${name}".`);
     setShowNewDialog(false);
   }, [newDescInput, newNameInput, workflowName]);

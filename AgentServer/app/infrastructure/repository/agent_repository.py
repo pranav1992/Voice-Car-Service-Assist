@@ -8,8 +8,7 @@ class AgentRepository:
 
     def initialize(self, agent):
         self.session.add(agent)
-        self.session.commit()
-        self.session.refresh(agent)
+        self.session.flush()
         return agent
 
     def create(self, agent):
@@ -33,8 +32,13 @@ class AgentRepository:
         ).first()
         return already_exist is not None
 
-    def get_all_agents(self):
-        return self.session.query(Agent).all()
+    def get_all_agents(self, workflow_id):
+        # materialize the queryset so FastAPI encodes a concrete list
+        return (
+            self.session.query(Agent)
+            .filter(Agent.workflow_id == workflow_id)
+            .all()
+        )
 
     def delete(self, agent_id):
         agent = self.session.get(Agent, agent_id)
@@ -46,7 +50,7 @@ class AgentRepository:
     def isInitialized(self, workflow_id):
         initial_agent = (
             self.session.query(Agent)
-            .filter(Agent.workflow_id == workflow_id, Agent.isInital)
+            .filter(Agent.workflow_id == workflow_id, Agent.isInitial)
             .first()
             )
         return initial_agent is not None
