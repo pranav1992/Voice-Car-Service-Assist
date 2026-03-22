@@ -16,4 +16,5 @@ dependencies = [
     "alembic>=1.18.4",
     "pydantic-settings>=2.13.1",
     "psycopg2-binary>=2.9.11",
+    "redis>=7.3.0",
 ]

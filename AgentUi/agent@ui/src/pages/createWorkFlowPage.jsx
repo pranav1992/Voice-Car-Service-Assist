@@ -228,7 +228,10 @@ function CreateWorkFlowPage() {
     setStatusMessage("");
     setWorkflowName(name);
     let payload = {"name": name}
-    await createWorkflowService(payload)
+    const data = await createWorkflowService(payload)
+    if (data.status == 200){
+      
+    }
 
 
     // setWorkflowDescription(newDescInput.trim());

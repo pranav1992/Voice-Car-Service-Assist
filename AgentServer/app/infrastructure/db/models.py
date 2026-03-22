@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
 from sqlalchemy import Column
@@ -53,16 +53,35 @@ class WorkFlow(SQLModel, table=True):  # Persistent Memory / history
         return data
 
 
+class PositionNode(SQLModel, table=True):
+    __tablename__ = "positionnode"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    agent_id: UUID = Field(foreign_key="agent.id")
+    x: float
+    y: float
+
+    # position rows are linked from Agent via Agent.position
+
+
 class Agent(SQLModel, table=True):
     __tablename__ = "agent"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(max_length=200, index=True)
     workflow_id: UUID = Field(foreign_key="workflow.id")
+    position: UUID = Field(foreign_key="positionnode.id")
     isInitial: Optional[bool] = Field(default=False)
-    model: str = Field(default="gpt-4")
-    temperature: float = Field(default=0.5)
-    instructions: str = Field(default="You are an AI assistant.")
-    gaurdrails: str = Field(default="")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+        description="Tool config / schema",
+    )
+
+    # relation to expose nested position data on reads
+    position_node: Optional[PositionNode] = Relationship(
+        sa_relationship_kwargs={"lazy": "joined"}
+    )
 
 
 class Tool(SQLModel, table=True):
@@ -70,8 +89,9 @@ class Tool(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(max_length=200, index=True)
     Workflow_id: UUID = Field(foreign_key="workflow.id")
+    position: UUID = Field(foreign_key="positionnode.id")
     method: str = Field(max_length=10)
-    payload: Dict[str, Any] = Field(
+    metadata: Dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSONB, nullable=False),
         description="Tool config / schema",
@@ -80,30 +100,6 @@ class Tool(SQLModel, table=True):
 
 class HandOff(SQLModel, table=True):
     __tablename__ = "handoff"
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    name: str = Field(max_length=200, index=True)
-    Workflow_id: UUID = Field(foreign_key="workflow.id")
-    meta: Dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column("metadata", JSONB, nullable=False),
-        description="Workflow graph payload from UI (nodes, edges, metadata).",
-    )
-
-
-class Staging(SQLModel, table=True):
-    __tablename__ = "staging"
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    name: str = Field(max_length=200, index=True)
-    Workflow_id: UUID = Field(foreign_key="workflow.id")
-    meta: Dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column("metadata", JSONB, nullable=False),
-        description="Workflow graph payload from UI (nodes, edges, metadata).",
-    )
-
-
-class Graph(SQLModel, table=True):
-    __tablename__ = "graph"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(max_length=200, index=True)
     Workflow_id: UUID = Field(foreign_key="workflow.id")

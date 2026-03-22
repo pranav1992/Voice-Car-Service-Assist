@@ -1,4 +1,6 @@
 
+from sqlalchemy.orm import joinedload
+
 from app.infrastructure.db.models import Agent
 
 
@@ -14,7 +16,7 @@ class AgentRepository:
     def create(self, agent):
         self.session.add(agent)
         self.session.commit()
-        self.session.refresh(agent)
+        self.session.flush()
         return agent
 
     def update(self, agent):
@@ -24,7 +26,12 @@ class AgentRepository:
         return agent
 
     def get_agent(self, agent_id):
-        return self.session.get(Agent, agent_id)
+        return (
+            self.session.query(Agent)
+            .options(joinedload(Agent.position_node))
+            .filter(Agent.id == agent_id)
+            .one_or_none()
+        )
 
     def isNameAlreadyExist(self, name):
         already_exist = self.session.query(Agent).filter(
@@ -36,6 +43,7 @@ class AgentRepository:
         # materialize the queryset so FastAPI encodes a concrete list
         return (
             self.session.query(Agent)
+            .options(joinedload(Agent.position_node))
             .filter(Agent.workflow_id == workflow_id)
             .all()
         )

@@ -8,6 +8,7 @@ from app.infrastructure.repository.workflow_respository import\
 from app.application.services.agent_service import AgentService
 from app.application.services.workflow_service import WorkflowService
 from app.application.facade.workflow_facade import WorkflowFacade
+from app.application.facade.agent_facade import Agent_Facade
 
 
 def get_agent_service(
@@ -27,7 +28,14 @@ def get_workflow_service(
 
     return WorkflowService(repo)
 
+
 def get_workflow_facade(
     session: Session = Depends(get_session)
 ) -> WorkflowFacade:
     return WorkflowFacade(session)
+
+
+def get_agent_facade(
+    session: Session = Depends(get_session)
+) -> Agent_Facade:
+    return Agent_Facade(session)

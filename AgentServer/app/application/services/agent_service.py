@@ -29,13 +29,11 @@ class AgentService:
         return self.agent_repository.update(agent)
 
     def delete(self, agent_id):
-        
+
         return self.agent_repository.delete(agent_id)
 
     def initialize(self, workflow_id):
         try:
-
-            # use explicit kwargs so pydantic receives the expected fields
             payload = InititialAgent(
                 name="Start agent",
                 workflow_id=workflow_id,

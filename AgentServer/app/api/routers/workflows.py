@@ -1,5 +1,9 @@
 from fastapi import APIRouter, Depends
-from app.domain.schema import WorkflowCreate, WorkflowResponse, Agentresponse
+from app.domain.schema import (
+    WorkflowCreate,
+    WorkflowResponse,
+    AgentWithPositionResponse,
+)
 from app.application.services.workflow_service import WorkflowService
 from app.application.facade.workflow_facade import WorkflowFacade
 from app.api.dependencies.services import (
@@ -24,7 +28,33 @@ def get_all_workflows(workflow_service: WorkflowService = Depends(
     return workflow_service.get_all_workflows()
 
 
-@router.get("/get_all_agent/{id}", response_model=list[Agentresponse])
-def get_all_agents(id, workflowFacade: WorkflowFacade = Depends(
+@router.get("/get/{id}", response_model=WorkflowResponse)
+def get_workflow(id, workflow_service: WorkflowService = Depends(
+                                                    get_workflow_service)):
+    return workflow_service.get_workflow(id)
+
+
+@router.get("/get_by_name/{name}", response_model=WorkflowResponse)
+def get_workflow_by_name(name, workflow_service: WorkflowService = Depends(
+                                                    get_workflow_service)):
+    return workflow_service.get_workflow_by_name(name)
+
+
+@router.delete("/delete/{id}", response_model=WorkflowResponse)
+def delete_workflow(id, workflow_service: WorkflowService = Depends(
+                                                    get_workflow_service)):
+    return workflow_service.delete_workflow(id)
+
+
+@router.put("/update/{id}", response_model=WorkflowResponse)
+def update_workflow(id, workflow: WorkflowCreate,
+                    workflow_service: WorkflowService = Depends(
+                                                    get_workflow_service)):
+    return workflow_service.update_workflow(id, workflow)
+
+
+@router.get("/get_all_agent/{id}", response_model=list[
+                                        AgentWithPositionResponse])
+def get_all_agents(id, workflow_facade: WorkflowFacade = Depends(
                                                     get_workflow_facade)):
-    return workflowFacade.get_all_agents(id)
+    return workflow_facade.get_all_agents(id)

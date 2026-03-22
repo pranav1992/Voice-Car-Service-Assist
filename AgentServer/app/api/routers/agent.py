@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 from app.application.services.agent_service import AgentService
-from app.domain.schema import AgentCreate
+from app.domain.schema import AgentCreate, AgentWithPositionResponse
 from fastapi import Depends
-from app.domain.schema import Agentresponse
-from app.api.dependencies.services import get_agent_service
+from app.application.facade.agent_facade import AgentFacade
+from app.api.dependencies.services import get_agent_service, get_agent_facade
 
 
 router = APIRouter(
@@ -12,25 +12,25 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=Agentresponse)
-def create_agent(agent: AgentCreate, agent_service: AgentService = Depends(
-                                                        get_agent_service)):
-    return agent_service.create(agent)
+@router.post("/", response_model=AgentWithPositionResponse)
+def create_agent(agent: AgentCreate, agent_facade: AgentFacade = Depends(
+                                                        get_agent_facade)):
+    return agent_facade.create_agent(agent)
 
 
-@router.put("/", response_model=Agentresponse)
+@router.put("/", response_model=AgentWithPositionResponse)
 def update_agent(agent: AgentCreate, agent_service: AgentService = Depends(
                                                     get_agent_service)):
     return agent_service.update(agent)
 
 
-@router.delete("/{id}", response_model=Agentresponse)
+@router.delete("/{id}", response_model=AgentWithPositionResponse)
 def delete_agent(id, agent_service: AgentService = Depends(
                                                     get_agent_service)):
     return agent_service.delete(id)
 
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=AgentWithPositionResponse)
 def getAgent(id, agent_service: AgentService = Depends(
                                                     get_agent_service)):
     return agent_service.get_agent(id)
