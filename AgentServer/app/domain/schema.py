@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.infrastructure.db.models import NodeType
 
 
 class WorkflowCreate(BaseModel):
@@ -24,9 +25,28 @@ class InititialAgent(BaseModel):
     isInitial: bool
 
 
+class NodeConfigCreate(BaseModel):
+    type: NodeType
+    Workflow_id: UUID
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class NodeConfigResponse(BaseModel):
+    id: UUID
+    type: NodeType
+    Workflow_id: UUID
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AgentCreate(BaseModel):
     name: str
     workflow_id: UUID
+
+
+class AgentPayload(BaseModel):
+    agent: AgentCreate
+    agent_config: NodeConfigCreate
 
 
 class Agentresponse(BaseModel):
@@ -65,3 +85,4 @@ class AgentWithPositionResponse(BaseModel):
         alias_generator=None,
         json_encoders={UUID: str},
     )
+    

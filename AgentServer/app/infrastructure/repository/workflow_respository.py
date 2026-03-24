@@ -1,3 +1,4 @@
+from sqlmodel import select
 from app.infrastructure.db.models import WorkFlow
 from sqlalchemy.exc import IntegrityError
 from app.domain.exceptions import DuplicateNameError
@@ -11,11 +12,11 @@ class WorkflowRepository:
         # preempt duplicate names to return a clean error
         try:
             if workflow.name:
-                existing_name = (
-                    self.session.query(WorkFlow)
-                    .filter(WorkFlow.name_lower == workflow.name.lower())
-                    .first()
-                )
+                existing_name = self.session.exec(
+                    select(WorkFlow).where(
+                        WorkFlow.name_lower == workflow.name.lower()
+                    )
+                ).first()
                 if existing_name:
                     raise DuplicateNameError(workflow.name)
             if not workflow.name_lower and workflow.name:
@@ -32,11 +33,12 @@ class WorkflowRepository:
         return self.session.get(WorkFlow, workflow_id)
 
     def get_workflow_by_name(self, workflow_name):
-        return self.session.query(WorkFlow).filter(
-            WorkFlow.name == workflow_name).first()
+        return self.session.exec(
+            select(WorkFlow).where(WorkFlow.name == workflow_name)
+        ).first()
 
     def get_all_workflows(self):
-        return self.session.query(WorkFlow).all()
+        return self.session.exec(select(WorkFlow)).all()
 
     def delete_workflow(self, workflow_id):
         workflow = self.session.get(WorkFlow, workflow_id)

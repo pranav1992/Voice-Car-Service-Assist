@@ -1,10 +1,16 @@
 from datetime import datetime
+from enum import Enum as PyEnum
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
-from sqlalchemy import Column
+from sqlalchemy import Column, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from pydantic import model_validator
+
+
+class NodeType(str, PyEnum):
+    AGENT = "agent"
+    TOOL = "tool"
 
 
 class WorkflowAutosave(SQLModel, table=True):  # draft / working state
@@ -58,11 +64,22 @@ class PositionNode(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(max_length=200, index=True)
     Workflow_id: UUID = Field(foreign_key="workflow.id")
-    agent_id: UUID = Field(foreign_key="agent.id")
     x: float
     y: float
 
-    # position rows are linked from Agent via Agent.position
+
+class NodeConfig(SQLModel, table=True):
+    __tablename__ = "nodeconfig"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    type: NodeType = Field(
+        sa_column=Column(SAEnum(NodeType, name="node_type"), nullable=False)
+    )
+    Workflow_id: UUID = Field(foreign_key="workflow.id")
+    metadata = Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
+        description="Tool config / schema",
+    )
 
 
 class Agent(SQLModel, table=True):
@@ -71,15 +88,12 @@ class Agent(SQLModel, table=True):
     name: str = Field(max_length=200, index=True)
     workflow_id: UUID = Field(foreign_key="workflow.id")
     position: UUID = Field(foreign_key="positionnode.id")
+    config: UUID = Field(foreign_key="nodeconfig.id")
     isInitial: Optional[bool] = Field(default=False)
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
-        description="Tool config / schema",
-    )
-
-    # relation to expose nested position data on reads
     position_node: Optional[PositionNode] = Relationship(
+        sa_relationship_kwargs={"lazy": "joined"}
+    )
+    node_config: Optional[NodeConfig] = Relationship(
         sa_relationship_kwargs={"lazy": "joined"}
     )
 
@@ -91,10 +105,13 @@ class Tool(SQLModel, table=True):
     Workflow_id: UUID = Field(foreign_key="workflow.id")
     position: UUID = Field(foreign_key="positionnode.id")
     method: str = Field(max_length=10)
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
-        description="Tool config / schema",
+    config: UUID = Field(foreign_key="nodeconfig.id")
+    position_node: Optional[PositionNode] = Relationship(
+        sa_relationship_kwargs={"lazy": "joined"},
+        back_populates="positionnode",
+    )
+    node_config: Optional[NodeConfig] = Relationship(
+        sa_relationship_kwargs={"lazy": "joined"}
     )
 
 

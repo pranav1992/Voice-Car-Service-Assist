@@ -1,6 +1,6 @@
 from app.infrastructure.repository.agent_repository import AgentRepository
 from app.infrastructure.db.models import Agent
-from app.domain.schema import AgentCreate, InititialAgent
+from app.domain.schema import InititialAgent, AgentCreate
 from app.domain.exceptions import (
                                 InvalidAgentDataError,
                                 AgentAlreadyInitializedError,
