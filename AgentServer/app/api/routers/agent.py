@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.application.services.agent_service import AgentService
 from app.domain.schema import (
-    AgentCreate, AgentPayload, AgentWithPositionResponse)
+                    AgentPayload, AgentWithPositionResponse)
 from fastapi import Depends
 from app.application.facade.agent_facade import AgentFacade
 from app.api.dependencies.services import get_agent_service, get_agent_facade

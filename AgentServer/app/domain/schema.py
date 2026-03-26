@@ -35,7 +35,9 @@ class NodeConfigResponse(BaseModel):
     id: UUID
     type: NodeType
     Workflow_id: UUID
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, validation_alias="data"
+    )
     model_config = ConfigDict(from_attributes=True)
 
 

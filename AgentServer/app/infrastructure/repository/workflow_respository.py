@@ -1,7 +1,8 @@
 from sqlmodel import select
 from app.infrastructure.db.models import WorkFlow
-from sqlalchemy.exc import IntegrityError
-from app.domain.exceptions import DuplicateNameError
+from sqlalchemy.exc import IntegrityError, OperationalError
+from app.domain.exceptions import DatabaseUnavailableError
+from app.domain.exceptions import DuplicateWorkflowError, WorkflowNotFoundError
 
 
 class WorkflowRepository:
@@ -11,45 +12,71 @@ class WorkflowRepository:
     def create(self, workflow: WorkFlow):
         # preempt duplicate names to return a clean error
         try:
-            if workflow.name:
-                existing_name = self.session.exec(
-                    select(WorkFlow).where(
-                        WorkFlow.name_lower == workflow.name.lower()
-                    )
-                ).first()
-                if existing_name:
-                    raise DuplicateNameError(workflow.name)
-            if not workflow.name_lower and workflow.name:
-                workflow.name_lower = workflow.name.lower()
-
             self.session.add(workflow)
             self.session.flush()
             return workflow
         except IntegrityError:
             self.session.rollback()
-            raise
+            raise DuplicateWorkflowError(workflow.name)
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def get_workflow(self, workflow_id):
-        return self.session.get(WorkFlow, workflow_id)
+        try:
+            workflow = self.session.get(WorkFlow, workflow_id)
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
+        if not workflow:
+            raise WorkflowNotFoundError(workflow_id)
+        return workflow
 
     def get_workflow_by_name(self, workflow_name):
-        return self.session.exec(
-            select(WorkFlow).where(WorkFlow.name == workflow_name)
-        ).first()
+        try:
+            workflow = self.session.exec(
+                select(WorkFlow).where(WorkFlow.name == workflow_name)
+            ).first()
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
+
+        if workflow is None:
+            raise WorkflowNotFoundError(workflow_name)
+
+        return workflow
 
     def get_all_workflows(self):
-        return self.session.exec(select(WorkFlow)).all()
+        try:
+            return self.session.exec(select(WorkFlow)).all()
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def delete_workflow(self, workflow_id):
-        workflow = self.session.get(WorkFlow, workflow_id)
-        if workflow:
+        try:
+            workflow = self.session.get(WorkFlow, workflow_id)
+            if workflow is None:
+                raise WorkflowNotFoundError(workflow_id)
+
             self.session.delete(workflow)
             self.session.commit()
             self.session.refresh(workflow)
             return workflow
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def update_workflow(self, workflow_id, workflow):
-        self.session.merge(workflow)
-        self.session.commit()
-        self.session.refresh(workflow)
-        return workflow
+        try:
+            existing = self.session.get(WorkFlow, workflow_id)
+            if existing is None:
+                raise WorkflowNotFoundError(workflow_id)
+
+            self.session.merge(workflow)
+            self.session.commit()
+            self.session.refresh(workflow)
+            return workflow
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()

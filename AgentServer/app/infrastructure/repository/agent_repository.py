@@ -1,7 +1,14 @@
 
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 
+from app.domain.exceptions import (
+    AgentAlreadyInitializedError,
+    AgentNameAlreadyExist,
+    AgentNotFoundError,
+    DatabaseUnavailableError,
+)
 from app.infrastructure.db.models import Agent
 
 
@@ -10,21 +17,43 @@ class AgentRepository:
         self.session = session
 
     def initialize(self, agent):
-        self.session.add(agent)
-        self.session.flush()
-        return agent
+        try:
+            self.session.add(agent)
+            self.session.flush()
+            return agent
+        except IntegrityError:
+            self.session.rollback()
+            raise AgentAlreadyInitializedError()
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def create(self, agent):
-        self.session.add(agent)
-        self.session.commit()
-        self.session.flush()
-        return agent
+        try:
+            self.session.add(agent)
+            self.session.commit()
+            self.session.flush()
+            return agent
+        except IntegrityError:
+            self.session.rollback()
+            raise AgentNameAlreadyExist(agent.name)
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def update(self, agent):
-        self.session.merge(agent)
-        self.session.commit()
-        self.session.refresh(agent)
-        return agent
+        try:
+            existing = self.session.get(Agent, agent.id)
+            if existing is None:
+                raise AgentNotFoundError(agent.id)
+
+            self.session.merge(agent)
+            self.session.commit()
+            self.session.refresh(agent)
+            return agent
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def get_agent(self, agent_id):
         stmt = (
@@ -32,16 +61,30 @@ class AgentRepository:
             .where(Agent.id == agent_id)
             .options(joinedload(Agent.position_node))
         )
-        return self.session.exec(stmt).first()
+        try:
+            agent = self.session.exec(stmt).first()
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
+
+        if agent is None:
+            raise AgentNotFoundError(agent_id)
+
+        return agent
 
     def isNameAlreadyExist(self, name):
-        already_exist = self.session.exec(
-            select(Agent).where(Agent.name == name)
-        ).first()
-        return already_exist is not None
+        try:
+            already_exist = self.session.exec(
+                select(Agent).where(Agent.name == name)
+            ).first()
+            return already_exist is not None
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def get_all_agents(self, workflow_id):
-        """Return all agents for a workflow with their PositionNode eagerly loaded."""
+        """Return all agents for a workflow with their
+            PositionNode eagerly loaded."""
 
         stmt = (
             select(Agent)
@@ -50,19 +93,34 @@ class AgentRepository:
         )
 
         # materialize the result so FastAPI serializes a concrete list
-        return list(self.session.exec(stmt))
+        try:
+            return list(self.session.exec(stmt))
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def delete(self, agent_id):
-        agent = self.session.get(Agent, agent_id)
-        self.session.delete(agent)
-        self.session.commit()
-        self.session.refresh(agent)
-        return agent
+        try:
+            agent = self.session.get(Agent, agent_id)
+            if agent is None:
+                raise AgentNotFoundError(agent_id)
+
+            self.session.delete(agent)
+            self.session.commit()
+            self.session.refresh(agent)
+            return agent
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()
 
     def isInitialized(self, workflow_id):
-        initial_agent = self.session.exec(
-            select(Agent).where(
-                Agent.workflow_id == workflow_id, Agent.isInitial
-            )
-        ).first()
-        return initial_agent is not None
+        try:
+            initial_agent = self.session.exec(
+                select(Agent).where(
+                    Agent.workflow_id == workflow_id, Agent.isInitial
+                )
+            ).first()
+            return initial_agent is not None
+        except OperationalError:
+            self.session.rollback()
+            raise DatabaseUnavailableError()

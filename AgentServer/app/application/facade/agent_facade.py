@@ -5,7 +5,7 @@ from app.application.services.agent_service import AgentService
 from app.infrastructure.repository.position_repository import \
                                                     PositionRepository
 from app.infrastructure.repository.node_config_repository import \
-                                                    NodeConfigRepository    
+                                                    NodeConfigRepository
 from app.infrastructure.repository.agent_repository import AgentRepository
 from app.domain.schema import AgentPayload
 
@@ -31,12 +31,13 @@ class AgentFacade:
 
         self.session.commit()
         return agent
-    
+
     def update_agent(self, agent_data: AgentPayload):
         agent = self.agent_service.update(agent_data.agent)
 
         config = agent_data.config
-        node_config = self.node_config_service.update(config)
+        self.node_config_service.update(config)
+
         return self.agent_service.update(agent)
 
     def get_agent(self, agent_id):
