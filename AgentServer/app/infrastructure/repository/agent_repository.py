@@ -59,7 +59,8 @@ class AgentRepository:
         stmt = (
             select(Agent)
             .where(Agent.id == agent_id)
-            .options(joinedload(Agent.position_node))
+            .options(selectinload(Agent.node_config), joinedload(
+                                                    Agent.position_node))
         )
         try:
             agent = self.session.exec(stmt).first()
@@ -92,8 +93,8 @@ class AgentRepository:
         stmt = (
             select(Agent)
             .where(Agent.workflow_id == workflow_id)
-            .options(selectinload(Agent.node_config))
-            .options(selectinload(Agent.position_node))
+            .options(selectinload(Agent.node_config), selectinload(
+                Agent.position_node))
         )
 
         # materialize the result so FastAPI serializes a concrete list

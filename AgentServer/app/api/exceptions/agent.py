@@ -11,8 +11,8 @@ from app.domain.exceptions import (
 
 def agent_exception_handler(app):
     @app.exception_handler(InvalidAgentDataError)
-    async def invalid_agent_data_handler(request: Request,
-                                         exc: InvalidAgentDataError):
+    async def invalid_agent_data_handler(
+            request: Request, exc: InvalidAgentDataError):
         return JSONResponse(
             status_code=400,
             content={"detail": exc.message},
@@ -28,8 +28,8 @@ def agent_exception_handler(app):
         )
 
     @app.exception_handler(AgentNameAlreadyExist)
-    async def agent_name_exists_handler(request: Request,
-                                        exc: AgentNameAlreadyExist):
+    async def agent_name_exists_handler(
+            request: Request, exc: AgentNameAlreadyExist):
         return JSONResponse(
             status_code=400,
             content={"detail": exc.message, "name": getattr(
@@ -37,8 +37,8 @@ def agent_exception_handler(app):
         )
 
     @app.exception_handler(AgentNotFoundError)
-    async def agent_not_found_handler(request: Request,
-                                      exc: AgentNotFoundError):
+    async def agent_not_found_handler(
+            request: Request, exc: AgentNotFoundError):
         return JSONResponse(
             status_code=404,
             content={"detail": exc.message, "agent_id": getattr(

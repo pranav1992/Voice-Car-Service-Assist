@@ -157,6 +157,8 @@ class Tool(SQLModel, table=True):
     )
     agent_id: UUID = Field(foreign_key="agent.id")
     method: str = Field(max_length=10)
+    position: UUID | None = Field(default=None, foreign_key="positionnode.id")
+    config: UUID | None = Field(default=None, foreign_key="nodeconfig.id")
     node_config: Optional[NodeConfig] = Relationship(
         back_populates="tool",
         sa_relationship_kwargs={

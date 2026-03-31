@@ -107,3 +107,17 @@ class AgentWithPositionResponse(BaseModel):
         alias_generator=None,
         json_encoders={UUID: str},
     )
+
+
+class ToolCreate(BaseModel):
+    name: str
+    workflow_id: UUID
+    agent_id: UUID
+    method: str
+
+
+class ToolPayload(BaseModel):
+    tool: ToolCreate
+    tool_config: NodeConfigCreate
+
+    model_config = ConfigDict(populate_by_name=True)

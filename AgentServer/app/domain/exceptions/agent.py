@@ -31,3 +31,4 @@ class AgentNotFoundError(DomainError):
     def __init__(self, agent_id):
         self.agent_id = agent_id
         super().__init__(f"Agent {agent_id} not found")
+

@@ -49,6 +49,9 @@ function FlowCanvas() {
   const initialAgentIdRef = React.useRef(null);
 
   const nodeTypes = { agent: AgentNode, tool: ToolNode };
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
 
   const showSidebar =
     sidebarOpen && (selectedTool || selectedAgent || selectedEdge);

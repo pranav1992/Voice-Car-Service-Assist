@@ -9,6 +9,7 @@ from app.application.services.agent_service import AgentService
 from app.application.services.workflow_service import WorkflowService
 from app.application.facade.workflow_facade import WorkflowFacade
 from app.application.facade.agent_facade import AgentFacade
+from app.application.facade.tool_facade import ToolFacade
 
 
 def get_agent_service(
@@ -39,3 +40,9 @@ def get_agent_facade(
     session: Session = Depends(get_session)
 ) -> AgentFacade:
     return AgentFacade(session)
+
+
+def get_tool_facade(
+    session: Session = Depends(get_session)
+) -> ToolFacade:
+    return ToolFacade(session)
