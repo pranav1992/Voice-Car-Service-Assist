@@ -137,7 +137,7 @@ function FlowCanvas() {
 
   const createToolMutation = useMutation({
     mutationFn: (payload) => createTool(payload),
-    onSuccess: (tool) => {
+    onSuccess: (tool, variables) => {
       const toolId =
         tool?.id ?? tool?.tool?.id ?? tool?.data?.id;
       const agentId =
@@ -151,12 +151,16 @@ function FlowCanvas() {
         tool?.position ||
         tool?.position_id ||
         tool?.positionId;
+      // fall back to the agent position so new tool doesn't overlap
+      const agent = nodes.find((n) => n.id === String(agentId));
+      const fallbackX = agent?.position?.x ?? 0;
+      const fallbackY = (agent?.position?.y ?? 0) + 150;
       const toolNode = {
         id: String(toolId),
         type: "tool",
         position: {
-          x: tool?.position_node?.x ?? tool?.x ?? 0,
-          y: tool?.position_node?.y ?? tool?.y ?? 0,
+          x: tool?.position_node?.x ?? tool?.x ?? fallbackX,
+          y: tool?.position_node?.y ?? tool?.y ?? fallbackY,
         },
         data: {
           ...DEFAULT_TOOL_DATA,
