@@ -18,6 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { getWorkflow, get_all_agents } from "../api/workflow";
 import { createAgent, deleteAgentApi } from "../api/agent";
+import { createTool } from "../api/tool";
 import { updatePosition, updatePositionsBulk } from "../api/position";
 
 import AgentNode from "../components/AgentNode";
@@ -130,6 +131,46 @@ function FlowCanvas() {
     onError: (err) => {
       const detail =
         err?.response?.data?.detail || err.message || "Failed to delete agent";
+      setStatusMessage(detail);
+    },
+  });
+
+  const createToolMutation = useMutation({
+    mutationFn: (payload) => createTool(payload),
+    onSuccess: (tool) => {
+      const positionId =
+        tool?.position_node?.id ||
+        tool?.position ||
+        tool?.position_id ||
+        tool?.positionId;
+      const toolNode = {
+        id: String(tool.id),
+        type: "tool",
+        position: {
+          x: tool?.position_node?.x ?? tool?.x ?? 0,
+          y: tool?.position_node?.y ?? tool?.y ?? 0,
+        },
+        data: {
+          ...DEFAULT_TOOL_DATA,
+          label: tool?.name || DEFAULT_TOOL_DATA.label,
+          method: tool?.method || DEFAULT_TOOL_DATA.method,
+          positionId,
+        },
+      };
+      setNodes((nds) => [...nds, toolNode]);
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `${toolNode.id}-${tool.agent_id}`,
+          source: toolNode.id,
+          target: String(tool.agent_id),
+          targetHandle: "tools",
+        },
+      ]);
+    },
+    onError: (err) => {
+      const detail =
+        err?.response?.data?.detail || err.message || "Failed to create tool";
       setStatusMessage(detail);
     },
   });
@@ -486,25 +527,28 @@ function FlowCanvas() {
   // }
 
   function addToolNode(agentId) {
+    if (!workflowId) {
+      setStatusMessage("Select or create a workflow before adding tools.");
+      return;
+    }
     const agent = nodes.find((n) => n.id === agentId);
     if (!agent) return;
 
-    const toolId = crypto.randomUUID();
-    const toolNode = {
-      id: toolId,
-      type: "tool",
-      position: { x: agent.position.x, y: agent.position.y + 150 },
-      data: { ...DEFAULT_TOOL_DATA },
-    };
-    const edge = {
-      id: `${toolId}-${agentId}`,
-      source: toolId,
-      target: agentId,
-      targetHandle: "tools",
+    const payload = {
+      tool: {
+        name: DEFAULT_TOOL_DATA.label || "HTTP Tool",
+        workflow_id: workflowId,
+        agent_id: agentId,
+        method: DEFAULT_TOOL_DATA.method || "GET",
+      },
+      tool_config: {
+        type: "tool",
+        workflow_id: workflowId,
+        config: { ...DEFAULT_TOOL_DATA },
+      },
     };
 
-    setNodes((nds) => [...nds, toolNode]);
-    setEdges((eds) => [...eds, edge]);
+    createToolMutation.mutate(payload);
   }
 
   function addNode(sourceId) {

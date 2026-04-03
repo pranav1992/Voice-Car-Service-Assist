@@ -20,7 +20,7 @@ async def get_all_tools_by_agent(agent_id, tool_facade: ToolFacade = Depends(
 
 
 @router.post("/")
-async def create_tool(tool_data: ToolPayload, tool_facade: 
+async def create_tool(tool_data: ToolPayload, tool_facade:
                       ToolFacade = Depends(get_tool_facade)):
     return tool_facade.create_tool(tool_data)
 
