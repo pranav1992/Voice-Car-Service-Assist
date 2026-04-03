@@ -12,7 +12,7 @@ export default function AgentNode({ id, data }) {
         position: "relative"
       }}
     >
-      <strong>Agent Node</strong>
+      <strong>{data.name || "Agent"}</strong>
 
       <div style={{ marginTop: 10 }}>
         <button onClick={() => data.addNode(id)}>+ Add Node</button>
@@ -37,7 +37,9 @@ export default function AgentNode({ id, data }) {
 
       {/* EDIT MODEL CONFIG BUTTON */}
       <div
-        onClick={() => data.openAgentConfig(id)}
+        onClick={
+          ()=>data.openAgentConfig(id)
+        }
         style={{
           position: "absolute",
           bottom: -28,

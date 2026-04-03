@@ -22,15 +22,13 @@ class WorkflowResponse(BaseModel):
 class NodeConfigCreate(BaseModel):
     type: NodeType
     workflow_id: UUID
-    agent_id: UUID | None = None
-    tool_id: UUID | None = None
     config: Dict[str, Any] = Field(
         default_factory=dict,
         alias="metadata",
         serialization_alias="metadata",
         validation_alias="config",
     )
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class NodeConfigResponse(BaseModel):
@@ -79,6 +77,10 @@ class PositionCreate(BaseModel):
     y: float
     agent_id: UUID | None = None
     tool_id: UUID | None = None
+
+
+class PositionUpdate(PositionCreate):
+    id: UUID
 
 
 class PositionResponse(BaseModel):

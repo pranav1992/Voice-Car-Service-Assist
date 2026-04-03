@@ -112,7 +112,6 @@ class AgentRepository:
 
             self.session.delete(agent)
             self.session.commit()
-            self.session.refresh(agent)
             return agent
         except OperationalError:
             self.session.rollback()

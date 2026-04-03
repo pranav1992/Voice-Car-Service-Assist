@@ -14,3 +14,13 @@ export const getAgent = async (agentId) => {
     const { data } = await apiClient.get(`/agents/${agentId}`);
     return data;
 };
+
+export const deleteAgentApi = async (agentId) => {
+    const { data } = await apiClient.delete(`/agents/${agentId}`);
+    return data;
+};
+
+export const deleteAgent = async (agentId) => {
+    const { data } = await apiClient.delete(`/agents/${agentId}`);
+    return data;
+};

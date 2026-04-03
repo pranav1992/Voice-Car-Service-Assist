@@ -1,4 +1,5 @@
 export const DEFAULT_AGENT_DATA = {
+  name: "New Agent",
   model: "gpt-4",
   temperature: 0.7,
   maxTokens: 1024,

@@ -155,7 +155,9 @@ class Tool(SQLModel, table=True):
     workflow_id: UUID = Field(
         sa_column=Column(ForeignKey("workflow.id", ondelete="CASCADE"))
     )
-    agent_id: UUID = Field(foreign_key="agent.id")
+    agent_id: UUID = Field(
+        sa_column=Column(ForeignKey("agent.id", ondelete="CASCADE"))
+    )
     method: str = Field(max_length=10)
     position: UUID | None = Field(default=None, foreign_key="positionnode.id")
     config: UUID | None = Field(default=None, foreign_key="nodeconfig.id")

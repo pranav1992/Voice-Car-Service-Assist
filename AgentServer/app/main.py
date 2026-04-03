@@ -8,7 +8,7 @@ from app.api.routers import agent
 from app.api.routers import tool
 from app.infrastructure.db.engine import create_db_and_tables
 from app.api.exceptions.base_exception_handler import base_exception_handler
-
+from app.api.routers import position
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +38,7 @@ app.add_middleware(
 app.include_router(workflows.router)
 app.include_router(agent.router)
 app.include_router(tool.router)
+app.include_router(position.router)
 
 base_exception_handler(app)
 

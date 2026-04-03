@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
+import DangerButton from "../ui/DangerButton";
 import LabeledInput from "../ui/LabeledInput";
 import LabeledTextarea from "../ui/LabeledTextarea";
 
-export default function ToolConfigPanel({ tool, onChange, onSave = () => {}, onClose = () => {} }) {
+export default function ToolConfigPanel({
+  tool,
+  onChange,
+  onDelete = () => {},
+  onSave = () => {},
+  onClose = () => {},
+}) {
   const [pathParamsText, setPathParamsText] = useState("");
   const [queryParamsText, setQueryParamsText] = useState("");
   const [headersText, setHeadersText] = useState("");
@@ -142,39 +149,38 @@ export default function ToolConfigPanel({ tool, onChange, onSave = () => {}, onC
         rows={4}
       />
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          marginTop: 16,
-        }}
-      >
-        <button
-          onClick={onSave}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #111",
-            background: "#111",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          Save
-        </button>
-        <button
-          onClick={onClose}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            background: "white",
-            cursor: "pointer",
-          }}
-        >
-          Close
-        </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
+          <button
+            onClick={onSave}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #111",
+              background: "#111",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            Save
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #ddd",
+              background: "white",
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <DangerButton label="Delete Tool" onClick={() => onDelete(tool.id)} />
+        </div>
       </div>
     </>
   );

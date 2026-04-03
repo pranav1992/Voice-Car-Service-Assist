@@ -26,7 +26,8 @@ class AgentFacade:
     def create_agent(self, agent_data: AgentPayload):
         agent = self.agent_service.create(agent_data.agent)
 
-        config = agent_data.config
+        # payload carries node configuration under `agent_config`
+        config = agent_data.agent_config
         config.agent_id = agent.id  # ensure constraint satisfied
         config.workflow_id = agent.workflow_id
         node_config = self.node_config_service.create(config)
@@ -47,7 +48,8 @@ class AgentFacade:
     def update_agent(self, agent_data: AgentPayload):
         agent = self.agent_service.update(agent_data.agent)
 
-        config = agent_data.config
+        # keep payload field name consistent with schema
+        config = agent_data.agent_config
         self.node_config_service.update(config)
 
         return self.agent_service.update(agent)
@@ -79,3 +81,6 @@ class AgentFacade:
 
         self.session.commit()
         return agent
+
+    def delete_agent(self, agent_id):
+        return self.agent_service.delete(agent_id)
