@@ -9,6 +9,8 @@ from app.infrastructure.repository.workflow_respository import \
                                                     WorkflowRepository
 from app.domain.schema import WorkflowCreate, InititialAgent
 from app.infrastructure.repository.agent_repository import AgentRepository
+from app.infrastructure.repository.tool_repository import ToolRepository
+from app.application.services.tool_service import ToolService
 
 
 class WorkflowFacade:
@@ -18,7 +20,7 @@ class WorkflowFacade:
         self.agent_service = AgentService(AgentRepository(session))
         self.agentfacade = AgentFacade(session)
         self.position_service = PositionService(PositionRepository(session))
-
+        self.tool_service = ToolService(ToolRepository(session))
         self.session = session
 
     def create_workflow_with_initial_agent(
@@ -39,6 +41,11 @@ class WorkflowFacade:
 
     def get_all_agents(self, workflow_id):
         return self.agent_service.get_all_agents(workflow_id=workflow_id)
+
+    def get_all_nodes(self, workflow_id):
+        agents = self.agent_service.get_all_agents(workflow_id=workflow_id)
+        tools = self.tool_service.get_all_tools(workflow_id=workflow_id)
+        return {"agents": agents, "tools": tools}
 
     def delete_workflow(self, workflow_id):
         try:

@@ -123,3 +123,28 @@ class ToolPayload(BaseModel):
     tool_config: NodeConfigCreate
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class ToolWithPositionResponse(BaseModel):
+    id: UUID
+    name: str
+    workflow_id: UUID
+
+    # read from ORM attribute `position_node` but serialize as `position`
+    position: Optional[PositionResponse] = Field(
+        default=None, validation_alias="position_node"
+    )
+    config: Optional[NodeConfigResponse] = Field(
+        default=None, validation_alias="node_config"
+    )
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        alias_generator=None,
+        json_encoders={UUID: str},
+    )
+
+
+class CombinedNodesResponse(BaseModel):
+    agents: list[AgentWithPositionResponse]
+    tools: list[ToolWithPositionResponse]

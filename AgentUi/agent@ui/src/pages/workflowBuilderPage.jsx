@@ -16,9 +16,9 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { getWorkflow, get_all_agents } from "../api/workflow";
+import { getWorkflow, get_all_nodes } from "../api/workflow";
 import { createAgent, deleteAgentApi } from "../api/agent";
-import { createTool } from "../api/tool";
+import { createTool, deleteTool as deleteToolApi } from "../api/tool";
 import { updatePosition, updatePositionsBulk } from "../api/position";
 
 import AgentNode from "../components/AgentNode";
@@ -51,7 +51,8 @@ function FlowCanvas() {
   const selectedAgent = nodes.find((n) => n.id === selectedAgentId);
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
 
-  // keep sidebar visible as soon as an id is set, even if node lookup resolves next tick
+  // keep sidebar visible as soon as an id is set, even if node 
+  // lookup resolves next tick
   const showSidebar =
     sidebarOpen &&
     (Boolean(selectedToolId) ||
@@ -62,16 +63,22 @@ function FlowCanvas() {
   const pendingPositionsRef = React.useRef({});
   const debounceTimerRef = React.useRef(null);
 
-  const { data: initialNodes = [], isFetching, isError, error } = useQuery({
+  // keep the fetched nodes reference stable so effects don't loop endlessly
+  const { data: fetchedNodes, isFetching, isError, error } = useQuery({
     queryKey: ["nodes", workflowId],
     enabled: Boolean(workflowId),
     queryFn: async () => {
-      const data = await get_all_agents(workflowId);
-      return Array.isArray(data)
-        ? data.map(agentSerializer)
-        : data?.id
-          ? [agentSerializer(data)]
-          : [];
+      const data = await get_all_nodes(workflowId);
+      const agents = Array.isArray(data?.agents) ? data.agents : [];
+      const tools = Array.isArray(data?.tools) ? data.tools : [];
+      return [
+        ...agents.map(agentSerializer),
+        ...tools.map((t) =>
+          toolSerializer(t, {
+            agentId: t?.agent_id ?? t?.agentId ?? t?.agent?.id,
+          }),
+        ),
+      ];
     },
   });
 
@@ -95,6 +102,16 @@ function FlowCanvas() {
     },
     onSuccess: (agent, variables) => {
       const newNode = agentSerializer(agent);
+      // place new agent to the right of the source agent if provided
+      if (variables?.sourceId) {
+        const source = nodes.find((n) => n.id === variables.sourceId);
+        if (source) {
+          newNode.position = {
+            x: (source.position?.x ?? 0) + 220,
+            y: source.position?.y ?? 0,
+          };
+        }
+      }
       setNodes((nds) => [...nds, newNode]);
 
       // attach edge from the source node that triggered creation, if provided
@@ -112,7 +129,8 @@ function FlowCanvas() {
       setStatusMessage("Agent created");
     },
     onError: (err) => {
-      const detail = err?.response?.data?.detail || err.message || "Failed to create agent";
+      const detail = err?.response?.data?.detail || err.message ||
+       "Failed to create agent";
       setStatusMessage(detail);
     },
   });
@@ -138,37 +156,24 @@ function FlowCanvas() {
   const createToolMutation = useMutation({
     mutationFn: (payload) => createTool(payload),
     onSuccess: (tool, variables) => {
-      const toolId =
-        tool?.id ?? tool?.tool?.id ?? tool?.data?.id;
       const agentId =
-        tool?.agent_id ?? tool?.agentId ?? tool?.agent?.id;
-      if (!toolId || !agentId) {
+        tool?.agent_id ??
+        tool?.agentId ??
+        tool?.agent?.id ??
+        variables?.tool?.agent_id ??
+        variables?.agent_id;
+
+      if (!agentId) {
         setStatusMessage("Tool creation returned missing ids; edge not added.");
         return;
       }
-      const positionId =
-        tool?.position_node?.id ||
-        tool?.position ||
-        tool?.position_id ||
-        tool?.positionId;
-      // fall back to the agent position so new tool doesn't overlap
+
       const agent = nodes.find((n) => n.id === String(agentId));
-      const fallbackX = agent?.position?.x ?? 0;
-      const fallbackY = (agent?.position?.y ?? 0) + 150;
-      const toolNode = {
-        id: String(toolId),
-        type: "tool",
-        position: {
-          x: tool?.position_node?.x ?? tool?.x ?? fallbackX,
-          y: tool?.position_node?.y ?? tool?.y ?? fallbackY,
-        },
-        data: {
-          ...DEFAULT_TOOL_DATA,
-          label: tool?.name || tool?.tool?.name || DEFAULT_TOOL_DATA.label,
-          method: tool?.method || tool?.tool?.method || DEFAULT_TOOL_DATA.method,
-          positionId,
-        },
-      };
+      const toolNode = toolSerializer(tool, {
+        agentId,
+        agentForFallback: agent,
+      });
+
       setNodes((nds) => [...nds, toolNode]);
       setEdges((eds) => [
         ...eds,
@@ -179,6 +184,7 @@ function FlowCanvas() {
           targetHandle: "tools",
         },
       ]);
+      setStatusMessage("Tool created");
     },
     onError: (err) => {
       const detail =
@@ -194,10 +200,34 @@ function FlowCanvas() {
     queryFn: () => getWorkflow(workflowId),
   });
 
-  // mirror query data into editable React Flow state (works even if onSuccess is skipped)
+  // mirror query data into editable React Flow state (works even if onSuccess is 
+  // skipped)
   useEffect(() => {
-    setNodes(initialNodes);
-  }, [initialNodes]);
+    // react-query returns a new empty array on each render before data arrives
+    // which previously retriggered this effect and caused a render loop.
+    // Using the raw fetchedNodes reference stops the loop.
+    setNodes(fetchedNodes ?? []);
+        // ensure edges from tool->agent exist when loading from backend
+    if (fetchedNodes?.length) {
+      const toolNodes = fetchedNodes.filter((n) => n.type === "tool");
+      const autoEdges = toolNodes
+        .filter((t) => t.data?.agentId)
+        .map((t) => ({
+          id: `${t.id}-${t.data.agentId}`,
+          source: t.id,
+          target: String(t.data.agentId),
+          targetHandle: "tools",
+        }));
+      setEdges((eds) => {
+        const existingIds = new Set(eds.map((e) => e.id));
+        const merged = [...eds];
+        autoEdges.forEach((e) => {
+          if (!existingIds.has(e.id)) merged.push(e);
+        });
+        return merged;
+      });
+    }
+  }, [fetchedNodes]);
 
   // track the agent marked as initial so we can guard deletes
   useEffect(() => {
@@ -286,26 +316,71 @@ function FlowCanvas() {
     };
   }
 
-  // const selectedTool = nodes.find((n) => n.id === selectedToolId);
-  // const selectedAgent = nodes.find((n) => n.id === selectedAgentId);
-  // const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
+  // normalize tool payloads from API/mutation into React Flow node shape
+  function toolSerializer(toolData, { agentId, agentForFallback } = {}) {
+    const positionNode = toolData?.position || toolData?.position_node;
+    const meta =
+      toolData?.config?.metadata ||
+      toolData?.tool_config?.config ||
+      toolData?.config ||
+      {};
+    const resolvedAgentId =
+      toolData?.agent_id ??
+      toolData?.agentId ??
+      toolData?.agent?.id ??
+      agentId;
 
-  // const onNodesChange = useCallback(
-  //   (changes) =>
-  //     setNodes((nds) =>
-  //       applyNodeChanges(
-  //         changes.filter(
-  //           (change) =>
-  //             !(
-  //               change.type === "remove" &&
-  //               change.id === initialAgentIdRef.current
-  //             ),
-  //         ),
-  //         nds,
-  //       ),
-  //     ),
-  //   [],
-  // );
+    // place tools beneath the agent by default
+    const fallbackX = agentForFallback?.position?.x ?? 0;
+    const fallbackY = (agentForFallback?.position?.y ?? 0) + 180;
+
+    // use server position unless it is the default origin (0,0) which 
+    // makes the tool appear far away
+    const hasServerPos =
+      positionNode && (positionNode.x !== undefined || positionNode.y !== undefined);
+    const serverAtOrigin =
+      hasServerPos &&
+      Number(positionNode.x ?? 0) === 0 &&
+      Number(positionNode.y ?? 0) === 0;
+    const xPos =
+      !hasServerPos || serverAtOrigin
+        ? fallbackX
+        : positionNode.x ?? toolData?.x ?? fallbackX;
+    const yPos =
+      !hasServerPos || serverAtOrigin
+        ? fallbackY
+        : positionNode.y ?? toolData?.y ?? fallbackY;
+
+    return {
+      id: String(toolData?.id ?? toolData?.tool?.id ?? toolData?.data?.id),
+      type: "tool",
+      position: {
+        x: xPos,
+        y: yPos,
+      },
+      data: {
+        ...DEFAULT_TOOL_DATA,
+        ...meta,
+        label:
+          meta?.label ??
+          toolData?.name ??
+          toolData?.tool?.name ??
+          DEFAULT_TOOL_DATA.label,
+        method:
+          meta?.method ??
+          toolData?.method ??
+          toolData?.tool?.method ??
+          DEFAULT_TOOL_DATA.method,
+        positionId:
+          positionNode?.id ??
+          toolData?.position_id ??
+          toolData?.positionId ??
+          toolData?.position?.id,
+        agentId: resolvedAgentId ? String(resolvedAgentId) : undefined,
+      },
+    };
+  }
+  
 
   const positionMutation = useMutation({
     mutationFn: (payload) => updatePosition(payload),
@@ -465,86 +540,15 @@ function FlowCanvas() {
     [nodes],
   );
 
-  // const isValidConnection = useCallback(
-  //   (connection) => {
-  //     const sourceNode = nodes.find((n) => n.id === connection.source);
-  //     const targetNode = nodes.find((n) => n.id === connection.target);
-  //     return sourceNode?.type === "agent" && targetNode?.type === "agent";
-  //   },
-  //   [nodes],
-  // );
-
-  // const onConnect = useCallback(
-  //   (params) => {
-  //     if (!isValidConnection(params)) return;
-  //     setEdges((eds) =>
-  //       addEdge(
-  //         {
-  //           ...params,
-  //           data: { ...DEFAULT_HANDOFF_DATA },
-  //         },
-  //         eds,
-  //       ),
-  //     );
-  //   },
-  //   [isValidConnection],
-  // );
-
-  // const onReconnect = useCallback((oldEdge, newConnection) => {
-  //   setEdges((eds) => {
-  //     const updated = reconnectEdge(oldEdge, newConnection, eds);
-  //     return updated.map((e) =>
-  //       e.id === oldEdge.id
-  //         ? { ...e, data: oldEdge.data ?? DEFAULT_HANDOFF_DATA }
-  //         : e,
-  //     );
-  //   });
-  // }, []);
-
-  // const onEdgeClick = useCallback(
-  //   (_, edge) => {
-  //     const sourceNode = nodes.find((n) => n.id === edge.source);
-  //     const targetNode = nodes.find((n) => n.id === edge.target);
-  //     if (sourceNode?.type === "agent" && targetNode?.type === "agent") {
-  //       setSelectedEdgeId(edge.id);
-  //       setSelectedToolId(null);
-  //       setSelectedAgentId(null);
-  //       setSidebarOpen(true);
-  //     }
-  //   },
-  //   [nodes],
-  // );
-
-  // const onNodeClick = useCallback((_, node) => {
-  //   if (node.type === "tool") {
-  //     setSelectedToolId(node.id);
-  //     setSelectedAgentId(null);
-  //     setSelectedEdgeId(null);
-  //     setSidebarOpen(true);
-  //   }
-  // }, []);
-
-  // function addAgentNode() {
-  //   const newNode = {
-  //     id: crypto.randomUUID(),
-  //     type: "agent",
-  //     position: {
-  //       x: 200 + Math.random() * 200,
-  //       y: 200 + Math.random() * 200,
-  //     },
-  //     data: { ...DEFAULT_AGENT_DATA },
-  //   };
-  //   setNodes((nds) => [...nds, newNode]);
-  //   setSidebarOpen(false);
-  // }
-
   function addToolNode(agentId) {
+   
     if (!workflowId) {
       setStatusMessage("Select or create a workflow before adding tools.");
       return;
     }
     const agent = nodes.find((n) => n.id === agentId);
     if (!agent) return;
+
 
     const payload = {
       tool: {
@@ -559,8 +563,10 @@ function FlowCanvas() {
         config: { ...DEFAULT_TOOL_DATA },
       },
     };
+    console.log(payload)
 
     createToolMutation.mutate(payload);
+
   }
 
   function addNode(sourceId) {
@@ -581,12 +587,23 @@ function FlowCanvas() {
   }, []);
 
   const deleteTool = useCallback((toolId) => {
-    setNodes((nds) => nds.filter((n) => n.id !== toolId));
-    setEdges((eds) =>
-      eds.filter((e) => e.source !== toolId && e.target !== toolId),
-    );
-    setSelectedToolId(null);
-    setSidebarOpen(false);
+    deleteToolApi(toolId)
+      .then(() => {
+        setNodes((nds) => nds.filter((n) => n.id !== toolId));
+        setEdges((eds) =>
+          eds.filter((e) => e.source !== toolId && e.target !== toolId),
+        );
+        setStatusMessage("Tool deleted");
+      })
+      .catch((err) => {
+        const detail =
+          err?.response?.data?.detail || err.message || "Failed to delete tool";
+        setStatusMessage(detail);
+      })
+      .finally(() => {
+        setSelectedToolId(null);
+        setSidebarOpen(false);
+      });
   }, []);
 
   const updateAgentData = useCallback((agentId, updates) => {
@@ -620,179 +637,6 @@ function FlowCanvas() {
 
     deleteAgentMutation.mutate(agentId);
   }, [deleteAgentMutation, nodes]);
-
-  // const serializeWorkflow = useCallback(() => {
-  //   const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
-
-  // // helper to strip functions from data
-  // const cleanData = (data = {}) =>
-  //   Object.fromEntries(
-  //     Object.entries(data).filter(([, value]) => typeof value !== "function"),
-  //   );
-
-  //   // group tool nodes that are connected to an agent via the "tools" handle
-  //   const agentToolsMap = {};
-  //   edges.forEach((e) => {
-  //     const sourceNode = nodeById[e.source];
-  //     const targetNode = nodeById[e.target];
-  //     if (sourceNode?.type === "tool" && targetNode?.type === "agent") {
-  //       if (!agentToolsMap[targetNode.id]) agentToolsMap[targetNode.id] = [];
-  //       agentToolsMap[targetNode.id].push({
-  //         id: sourceNode.id,
-  //         type: sourceNode.type,
-  //         data: cleanData(sourceNode.data),
-  //       });
-  //     }
-  //   });
-
-  //   // build serialized nodes: agents with embedded tools, plus any non-tool nodes
-  //   const serializedNodes = nodes
-  //     .filter((n) => n.type !== "tool") // tools are nested under their agent
-  //     .map(({ data, ...rest }) => ({
-  //       ...rest,
-  //       data: {
-  //         ...cleanData(data),
-  //         type: rest.type,
-  //         tools: agentToolsMap[rest.id] || [],
-  //       },
-  //     }));
-
-  //   // keep edges that do not involve nested tool nodes and add type + cleaned data
-  //   const serializedEdges = edges
-  //     .filter((e) => {
-  //       const sourceNode = nodeById[e.source];
-  //       const targetNode = nodeById[e.target];
-  //       return sourceNode?.type !== "tool" && targetNode?.type !== "tool";
-  //     })
-  //     .map((e) => ({
-  //       ...e,
-  //       type: e.type || "default",
-  //       data: cleanData(e.data),
-  //     }));
-
-  //   const meta = {};
-  //   if (workflowDescription.trim())
-  //     meta.description = workflowDescription.trim();
-
-  //   return {
-  //     ...(Object.keys(meta).length ? { meta } : {}),
-  //     nodes: serializedNodes,
-  //     edges: serializedEdges,
-  //   };
-  // }, [nodes, edges, workflowDescription]);
-
-  // const loadWorkflowIntoCanvas = useCallback((payload) => {
-  //   if (!payload?.nodes) return;
-  //   // reconstruct agents and tools
-  //   const agentNodes = [];
-  //   const toolNodes = [];
-  //   const edgesFromTools = [];
-
-  // payload.nodes.forEach((n) => {
-  //   const { tools = [], ...restData } = n.data || {};
-  //   agentNodes.push({
-  //     ...n,
-  //     data: {
-  //       ...restData,
-  //       type: "agent",
-  //     },
-  //   });
-  //     tools.forEach((t) => {
-  //       const toolId = t.id || crypto.randomUUID();
-  //       toolNodes.push({
-  //         id: toolId,
-  //         type: "tool",
-  //         position: { x: n.position?.x || 0, y: (n.position?.y || 0) + 150 },
-  //         data: t.data || {},
-  //       });
-  //       edgesFromTools.push({
-  //         id: `${toolId}-${n.id}`,
-  //         source: toolId,
-  //         target: n.id,
-  //         targetHandle: "tools",
-  //       });
-  //     });
-  //   });
-
-  //   const filteredEdges =
-  //     payload.edges?.filter(
-  //       (e) =>
-  //         agentNodes.find((a) => a.id === e.source) &&
-  //         agentNodes.find((a) => a.id === e.target),
-  //     ) || [];
-
-  //   setNodes([...agentNodes, ...toolNodes]);
-  //   setEdges([...filteredEdges, ...edgesFromTools]);
-  // }, []);
-
-  // const saveNewWorkflow = useCallback(async () => {
-  //   const name = workflowName.trim();
-  //   if (!name) {
-  //     setStatusMessage("Please enter a workflow name before saving.");
-  //     return;
-  //   }
-  //   const taken = workflowList.some(
-  //     (wf) => wf.name?.toLowerCase() === name.toLowerCase(),
-  //   );
-  //   if (taken) {
-  //     setStatusMessage(
-  //       "Workflow name already exists. Choose a different name.",
-  //     );
-  //     return;
-  //   }
-  //   setIsSaving(true);
-  //   try {
-  //     const payload = serializeWorkflow();
-  //     const res = await createWorkflow({ name, payload });
-  //     setWorkflowId(res.id);
-  //     setStatusMessage(`Saved new workflow "${name}" (id: ${res.id}).`);
-  //     setView("list");
-  //     fetchWorkflowList();
-  //   } catch (err) {
-  //     console.error(err);
-  //     setStatusMessage(
-  //       err.response?.data?.detail || err.message || "Failed to save.",
-  //     );
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // }, [serializeWorkflow, workflowName]);
-
-  // const updateExistingWorkflow = useCallback(async () => {
-  //   const name = workflowName.trim();
-  //   if (!name) {
-  //     setStatusMessage("Please enter a workflow name before updating.");
-  //     return;
-  //   }
-  //   if (!workflowId) {
-  //     setStatusMessage("Provide a workflow ID to update.");
-  //     return;
-  //   }
-  //   const taken = workflowList.some(
-  //     (wf) =>
-  //       String(wf.id) !== String(workflowId) &&
-  //       wf.name?.toLowerCase() === name.toLowerCase(),
-  //   );
-  //   if (taken) {
-  //     setStatusMessage("Another workflow already uses this name.");
-  //     return;
-  //   }
-  //   setIsSaving(true);
-  //   try {
-  //     const payload = serializeWorkflow();
-  //     const res = await updateWorkflow(workflowId, { name, payload });
-  //     setStatusMessage(`Updated workflow "${res.name}" (id: ${res.id}).`);
-  //     setView("list");
-  //     fetchWorkflowList();
-  //   } catch (err) {
-  //     console.error(err);
-  //     setStatusMessage(
-  //       err.response?.data?.detail || err.message || "Failed to update.",
-  //     );
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // }, [serializeWorkflow, workflowId, workflowName]);
 
   return (
     <div

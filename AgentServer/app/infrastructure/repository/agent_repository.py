@@ -110,6 +110,16 @@ class AgentRepository:
             if agent is None:
                 raise AgentNotFoundError(agent_id)
 
+            # clear FKs and delete linked config/position before deleting agent
+            agent.config = None
+            agent.position = None
+            self.session.flush()
+
+            if agent.node_config is not None:
+                self.session.delete(agent.node_config)
+            if agent.position_node is not None:
+                self.session.delete(agent.position_node)
+
             self.session.delete(agent)
             self.session.commit()
             return agent

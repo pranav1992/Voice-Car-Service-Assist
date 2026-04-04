@@ -20,7 +20,10 @@ export default function AgentNode({ id, data }) {
 
       {/* ADD TOOL BUTTON */}
       <div
-        onClick={() => data.addToolNode(id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          data.addToolNode(id);
+        }}
         style={{
           position: "absolute",
           bottom: -28,

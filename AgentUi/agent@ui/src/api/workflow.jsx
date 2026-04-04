@@ -10,6 +10,11 @@ export const createWorkflow = async (payload) => {
     return data;
 };
 
+export const get_all_nodes = async (workflowId) => {
+    const { data } = await apiClient.get(`/workflows/get_all_nodes/${workflowId}`);
+    return data;
+}
+
 export const get_all_agents = async (workflowId) => {
     const { data } = await apiClient.get(`/workflows/get_all_agent/${workflowId}`);
     return data;

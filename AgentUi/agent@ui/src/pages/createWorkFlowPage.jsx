@@ -28,7 +28,23 @@ function CreateWorkFlowPage() {
           ? data.data
           : [];
     },
+    // prevent endless retries and focus refetch loops from masking failures
+    retry: 1,
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
   });
+
+  // show a friendly hint if loading takes unusually long (likely API unreachable)
+  useEffect(() => {
+    if (!isFetchingWorkflows) return undefined;
+    const timer = setTimeout(() => {
+      setStatusMessage(
+        "Still loading workflows… check that the backend is running at " +
+          (import.meta.env.VITE_APP_BASE_URL || "http://127.0.0.1:8000"),
+      );
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [isFetchingWorkflows]);
 
   const createWorkflowMutation = useMutation({
     mutationFn: createWorkflowService,

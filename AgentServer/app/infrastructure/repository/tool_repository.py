@@ -61,9 +61,21 @@ class ToolRepository:
             if tool is None:
                 raise ToolNotFoundError(tool_id)
 
+            # clear foreign keys on tool before deleting 
+            # linked rows to satisfy constraints
+            tool.config = None
+            tool.position = None
+            self.session.flush()
+
+            if tool.node_config is not None:
+                self.session.delete(tool.node_config)
+            if tool.position_node is not None:
+                self.session.delete(tool.position_node)
+
             self.session.delete(tool)
             self.session.commit()
-            self.session.refresh(tool)
+            # return a lightweight dict so callers
+            # don't access expired instance
             return tool
         except OperationalError:
             self.session.rollback()

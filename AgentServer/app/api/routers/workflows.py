@@ -3,6 +3,7 @@ from app.domain.schema import (
     WorkflowCreate,
     WorkflowResponse,
     AgentWithPositionResponse,
+    CombinedNodesResponse,
 )
 from app.application.services.workflow_service import WorkflowService
 from app.application.facade.workflow_facade import WorkflowFacade
@@ -58,3 +59,16 @@ def update_workflow(id, workflow: WorkflowCreate,
 def get_all_agents(id, workflow_facade: WorkflowFacade = Depends(
                                                     get_workflow_facade)):
     return workflow_facade.get_all_agents(id)
+
+
+@router.get(
+    "/get_all_nodes/{id}",
+    response_model=CombinedNodesResponse,
+)
+def get_all_nodes(
+    id, workflow_facade: WorkflowFacade = Depends(get_workflow_facade)
+):
+    """
+    Return both agents and tools (with positions/config) for a workflow.
+    """
+    return workflow_facade.get_all_nodes(id)
